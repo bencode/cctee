@@ -1,0 +1,8 @@
+FROM node:20-slim
+WORKDIR /build
+RUN npm install -g pnpm
+COPY ui/package.json ui/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY ui ./
+RUN pnpm build
+CMD ["cp", "-r", "/build/dist/.", "/output/"]
