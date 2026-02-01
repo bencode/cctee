@@ -4,6 +4,20 @@
   height: 100%;
 }
 
+.loading,
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #888;
+  font-size: 14px;
+}
+
+.error {
+  color: #cd3131;
+}
+
 .header {
   display: flex;
   align-items: center;
@@ -101,6 +115,48 @@
     border-radius: 4px;
     font-size: 13px;
     color: #888;
+  }
+}
+
+.guideText {
+  font-size: 13px;
+  color: #888;
+  margin-top: 8px;
+}
+
+.commandBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  max-width: 90%;
+
+  code {
+    padding: 0;
+    background: transparent;
+    font-size: 12px;
+    color: #0dbc79;
+    word-break: break-all;
+  }
+}
+
+.copyButton {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #d4d4d4;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: #444;
+    border-color: #555;
   }
 }
 

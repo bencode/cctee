@@ -32,3 +32,15 @@ export type SessionInfo = {
   started_at: string
   last_activity: string
 }
+
+export type TokenResponse = {
+  token: string
+  expires_at: string
+  ws_url: string
+  command_hint: string
+}
+
+export type TokenValidateResponse = {
+  valid: boolean
+  expires_at: string | null
+}
