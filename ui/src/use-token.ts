@@ -44,7 +44,9 @@ export function useToken() {
       const newUrl = new URL(window.location.href)
       newUrl.searchParams.set('token', response.token)
       window.history.replaceState({}, '', newUrl.toString())
-      setState({ status: 'ready', token: response.token, commandHint: response.command_hint })
+      const host = window.location.origin
+      const commandHint = `cctee --server=${host} --token=${response.token} claude`
+      setState({ status: 'ready', token: response.token, commandHint })
     } catch (err) {
       setState({ status: 'error', message: err instanceof Error ? err.message : 'Unknown error' })
     }
