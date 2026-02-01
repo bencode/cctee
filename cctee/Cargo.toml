@@ -1,11 +1,7 @@
 [package]
-name = "cctee-wrapper"
+name = "cctee"
 version.workspace = true
 edition.workspace = true
-
-[[bin]]
-name = "cctee"
-path = "src/main.rs"
 
 [dependencies]
 cctee-common = { path = "../cctee-common" }
