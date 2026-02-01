@@ -1,78 +1,68 @@
 use axum::{
     extract::{
         ws::{Message as WsMessage, WebSocket},
-        State, WebSocketUpgrade,
+        Query, State, WebSocketUpgrade,
     },
     response::Response,
 };
 use futures::{SinkExt, StreamExt};
+use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{broadcast, mpsc, RwLock};
 
-use cctee_common::Message;
+use cctee_common::{Message, Token};
 
 use crate::AppState;
 
 pub type WrapperConnections = Arc<RwLock<HashMap<String, mpsc::Sender<Message>>>>;
 
-/// Handle UI WebSocket connections
-/// UI receives all messages and can send input to specific sessions
-pub async fn handle_ui_ws(State(state): State<AppState>, ws: WebSocketUpgrade) -> Response {
-    ws.on_upgrade(|socket| handle_ui_socket(socket, state))
+/// Per-token state for session isolation
+pub struct TokenState {
+    pub token: Token,
+    pub ui_tx: broadcast::Sender<Message>,
+    pub wrappers: WrapperConnections,
 }
 
-async fn handle_ui_socket(socket: WebSocket, state: AppState) {
-    let (mut sender, mut receiver) = socket.split();
-    let mut rx = state.ui_tx.subscribe();
-
-    // Task: forward broadcast messages to UI
-    let send_task = tokio::spawn(async move {
-        while let Ok(msg) = rx.recv().await {
-            let json = match serde_json::to_string(&msg) {
-                Ok(j) => j,
-                Err(_) => continue,
-            };
-            if sender.send(WsMessage::Text(json.into())).await.is_err() {
-                break;
-            }
+impl TokenState {
+    pub fn new(token: Token) -> Self {
+        let (ui_tx, _) = broadcast::channel::<Message>(1000);
+        Self {
+            token,
+            ui_tx,
+            wrappers: Arc::new(RwLock::new(HashMap::new())),
         }
-    });
-
-    // Task: receive input from UI and route to wrapper
-    let wrappers = state.wrappers.clone();
-    let recv_task = tokio::spawn(async move {
-        while let Some(Ok(msg)) = receiver.next().await {
-            if let WsMessage::Text(text) = msg {
-                if let Ok(message) = serde_json::from_str::<Message>(&text) {
-                    if let Message::Input { session_id, .. } = &message {
-                        let wrappers = wrappers.read().await;
-                        if let Some(tx) = wrappers.get(session_id) {
-                            let _ = tx.send(message).await;
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    // Wait for either task to complete
-    tokio::select! {
-        _ = send_task => {}
-        _ = recv_task => {}
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TokenQuery {
+    pub token: String,
 }
 
 /// Handle Wrapper WebSocket connections
 /// Wrapper sends output and receives input for its session
-pub async fn handle_wrapper_ws(State(state): State<AppState>, ws: WebSocketUpgrade) -> Response {
-    ws.on_upgrade(|socket| handle_wrapper_socket(socket, state))
+pub async fn handle_wrapper_ws(
+    State(state): State<AppState>,
+    Query(query): Query<TokenQuery>,
+    ws: WebSocketUpgrade,
+) -> Response {
+    ws.on_upgrade(move |socket| handle_wrapper_socket(socket, state, query.token))
 }
 
-async fn handle_wrapper_socket(socket: WebSocket, state: AppState) {
+async fn handle_wrapper_socket(socket: WebSocket, state: AppState, token: String) {
+    let tokens = state.tokens.read().await;
+    let token_state = match tokens.get(&token) {
+        Some(ts) if ts.token.is_valid() => ts,
+        _ => return,
+    };
+
     let (mut sender, mut receiver) = socket.split();
     let (input_tx, mut input_rx) = mpsc::channel::<Message>(100);
 
     let mut session_id: Option<String> = None;
+    let ui_tx = token_state.ui_tx.clone();
+    let wrappers = token_state.wrappers.clone();
+    drop(tokens);
 
     // Task: forward input messages to wrapper
     let send_task = tokio::spawn(async move {
@@ -88,8 +78,6 @@ async fn handle_wrapper_socket(socket: WebSocket, state: AppState) {
     });
 
     // Task: receive output from wrapper and broadcast to UI
-    let ui_tx = state.ui_tx.clone();
-    let wrappers = state.wrappers.clone();
     let recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             if let WsMessage::Text(text) = msg {
@@ -101,7 +89,7 @@ async fn handle_wrapper_socket(socket: WebSocket, state: AppState) {
                         wrappers.write().await.insert(id, input_tx.clone());
                     }
 
-                    // Broadcast to all UI clients
+                    // Broadcast to all UI clients for this token
                     let _ = ui_tx.send(message);
                 }
             }

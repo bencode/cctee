@@ -3,10 +3,10 @@ import type { Message } from './types'
 
 type OutputHandler = (sessionId: string, content: string) => void
 
-export function useWebSocket(onOutput: OutputHandler) {
+export function useEvents(token: string | null, onOutput: OutputHandler) {
   const [sessionIds, setSessionIds] = useState<Set<string>>(new Set())
   const [connected, setConnected] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
+  const eventSourceRef = useRef<EventSource | null>(null)
   const onOutputRef = useRef(onOutput)
   const reconnectTimeoutRef = useRef<number | null>(null)
 
@@ -15,11 +15,13 @@ export function useWebSocket(onOutput: OutputHandler) {
   }, [onOutput])
 
   const connect = useCallback(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/ui`)
-    wsRef.current = ws
+    if (!token) return null
 
-    ws.onopen = () => {
+    const url = `/api/events?token=${token}`
+    const es = new EventSource(url)
+    eventSourceRef.current = es
+
+    es.onopen = () => {
       setConnected(true)
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current)
@@ -27,18 +29,14 @@ export function useWebSocket(onOutput: OutputHandler) {
       }
     }
 
-    ws.onclose = () => {
+    es.onerror = () => {
       setConnected(false)
-      wsRef.current = null
-      // Auto reconnect after 2 seconds
+      es.close()
+      eventSourceRef.current = null
       reconnectTimeoutRef.current = window.setTimeout(connect, 2000)
     }
 
-    ws.onerror = () => {
-      ws.close()
-    }
-
-    ws.onmessage = (event) => {
+    es.onmessage = (event) => {
       const message: Message = JSON.parse(event.data)
 
       if (message.type === 'output') {
@@ -52,34 +50,21 @@ export function useWebSocket(onOutput: OutputHandler) {
           if (prev.has(message.session_id)) return prev
           return new Set([...prev, message.session_id])
         })
-      } else if (message.type === 'session_end') {
-        // Keep session visible, user can clear manually
       }
     }
 
-    return ws
-  }, [])
+    return es
+  }, [token])
 
   useEffect(() => {
-    const ws = connect()
+    const es = connect()
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current)
       }
-      ws.close()
+      es?.close()
     }
   }, [connect])
-
-  const sendInput = useCallback((sessionId: string, content: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const message: Message = {
-        type: 'input',
-        session_id: sessionId,
-        content,
-      }
-      wsRef.current.send(JSON.stringify(message))
-    }
-  }, [])
 
   const removeSession = useCallback((sessionId: string) => {
     setSessionIds((prev) => {
@@ -91,5 +76,5 @@ export function useWebSocket(onOutput: OutputHandler) {
 
   const clearAll = useCallback(() => setSessionIds(new Set()), [])
 
-  return { sessionIds, connected, sendInput, removeSession, clearAll }
+  return { sessionIds, connected, removeSession, clearAll }
 }

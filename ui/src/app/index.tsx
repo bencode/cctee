@@ -2,18 +2,37 @@ import { useRef, useEffect, useCallback, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
-import { useWebSocket } from '../use-websocket'
+import { useToken } from '../use-token'
+import { useEvents } from '../use-events'
 import styles from './style.module.scss'
 
-// 过滤横线分隔符
-// 匹配：可选的颜色设置 ANSI 序列 + 连续 10 个以上的横线字符 + 可选的重置序列
 const filterOutput = (content: string): string => {
-  // 匹配连续的横线字符（可能夹杂 ANSI 颜色序列）
-  // 横线字符: ─ (U+2500)
   return content.replace(/(\x1b\[[0-9;]*m)*[─]{10,}(\x1b\[[0-9;]*m)*/g, '')
 }
 
 function App() {
+  const tokenState = useToken()
+
+  if (tokenState.status === 'loading') {
+    return (
+      <div className={styles.app}>
+        <div className={styles.loading}>Loading...</div>
+      </div>
+    )
+  }
+
+  if (tokenState.status === 'error') {
+    return (
+      <div className={styles.app}>
+        <div className={styles.error}>Error: {tokenState.message}</div>
+      </div>
+    )
+  }
+
+  return <AppContent token={tokenState.token} commandHint={tokenState.commandHint} />
+}
+
+function AppContent({ token, commandHint }: { token: string; commandHint: string }) {
   const terminalsRef = useRef<Map<string, Terminal>>(new Map())
   const [selectedSession, setSelectedSession] = useState<string | null>(null)
 
@@ -25,9 +44,19 @@ function App() {
     }
   }, [])
 
-  const { sessionIds, connected, sendInput, removeSession, clearAll } = useWebSocket(handleOutput)
+  const { sessionIds, connected, removeSession, clearAll } = useEvents(token, handleOutput)
 
-  // Compute effective active session: use selected if valid, otherwise first session
+  const sendInput = useCallback(async (sessionId: string, content: string) => {
+    const res = await fetch('/api/input', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, session_id: sessionId, content }),
+    })
+    if (!res.ok) {
+      console.error('Failed to send input:', res.status)
+    }
+  }, [token])
+
   const sessionArray = Array.from(sessionIds)
   const activeSession = selectedSession && sessionIds.has(selectedSession)
     ? selectedSession
@@ -80,10 +109,7 @@ function App() {
 
       <main className={styles.sessions}>
         {sessionIds.size === 0 ? (
-          <div className={styles.empty}>
-            <p>No active sessions</p>
-            <code>cctee claude -p "your prompt"</code>
-          </div>
+          <TokenGuide commandHint={commandHint} />
         ) : (
           Array.from(sessionIds).map((id) => (
             <SessionPanel
@@ -106,6 +132,29 @@ function App() {
           onSend={handleSendInput}
         />
       )}
+    </div>
+  )
+}
+
+function TokenGuide({ commandHint }: { commandHint: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(commandHint)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className={styles.empty}>
+      <p>No active sessions</p>
+      <p className={styles.guideText}>Run this command in your terminal:</p>
+      <div className={styles.commandBox}>
+        <code>{commandHint}</code>
+        <button className={styles.copyButton} onClick={handleCopy}>
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -167,7 +216,6 @@ function SessionPanel({
     fitAddonRef.current = fitAddon
     onRegister(sessionId, terminal)
 
-    // Use ResizeObserver to handle all size changes
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit()
     })

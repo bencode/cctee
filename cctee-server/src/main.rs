@@ -1,20 +1,21 @@
+mod api;
 mod ws;
 
 use anyhow::Result;
-use axum::{routing::get, Router};
-use std::sync::Arc;
-use tokio::sync::broadcast;
+use axum::{routing::{get, post}, Router};
+use std::{collections::HashMap, sync::Arc};
+use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
 
-use cctee_common::Message;
-use ws::{handle_ui_ws, handle_wrapper_ws, WrapperConnections};
+use api::{create_token, events, send_input, validate_token};
+use ws::{handle_wrapper_ws, TokenState};
 
 #[derive(Clone)]
 pub struct AppState {
-    /// Broadcast channel for UI clients (receives all messages)
-    pub ui_tx: broadcast::Sender<Message>,
-    /// Map of session_id -> wrapper sender for routing input
-    pub wrappers: WrapperConnections,
+    /// Map of token -> TokenState for session isolation
+    pub tokens: Arc<RwLock<HashMap<String, TokenState>>>,
+    /// Public host URL for generating command hints
+    pub public_host: String,
 }
 
 #[tokio::main]
@@ -24,10 +25,12 @@ async fn main() -> Result<()> {
         .and_then(|p| p.parse().ok())
         .unwrap_or(4111);
 
-    let (ui_tx, _) = broadcast::channel::<Message>(1000);
+    let public_host = std::env::var("PUBLIC_HOST")
+        .unwrap_or_else(|_| format!("http://localhost:{}", port));
+
     let state = AppState {
-        ui_tx,
-        wrappers: Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
+        tokens: Arc::new(RwLock::new(HashMap::new())),
+        public_host,
     };
 
     let cors = CorsLayer::new()
@@ -36,7 +39,10 @@ async fn main() -> Result<()> {
         .allow_headers(Any);
 
     let app = Router::new()
-        .route("/ws/ui", get(handle_ui_ws))
+        .route("/api/token", post(create_token))
+        .route("/api/token/validate", post(validate_token))
+        .route("/api/input", post(send_input))
+        .route("/api/events", get(events))
         .route("/ws/wrapper", get(handle_wrapper_ws))
         .layer(cors)
         .with_state(state);
