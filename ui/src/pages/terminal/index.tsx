@@ -44,7 +44,7 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
     }
   }, [])
 
-  const { sessionIds, connected, removeSession, clearAll } = useEvents(token, handleOutput)
+  const { sessionIds, removeSession, clearAll } = useEvents(token, handleOutput)
 
   const sendInput = useCallback(async (sessionId: string, content: string) => {
     const res = await fetch('/api/input', {
@@ -97,8 +97,8 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
       <header className={styles.header}>
         <h1>cctee</h1>
         <div className={styles.status}>
-          <span className={`${styles.dot} ${connected ? styles.connected : styles.disconnected}`} />
-          {connected ? 'Connected' : 'Disconnected'}
+          <span className={`${styles.dot} ${sessionIds.size > 0 ? styles.connected : styles.disconnected}`} />
+          {sessionIds.size > 0 ? `${sessionIds.size} session${sessionIds.size > 1 ? 's' : ''}` : 'Waiting'}
         </div>
         {sessionIds.size > 0 && (
           <button className={styles.clearAll} onClick={handleClearAll}>
