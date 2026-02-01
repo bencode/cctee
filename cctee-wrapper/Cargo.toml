@@ -1,0 +1,23 @@
+[package]
+name = "cctee-wrapper"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "cctee"
+path = "src/main.rs"
+
+[dependencies]
+cctee-common = { path = "../cctee-common" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+anyhow.workspace = true
+tokio-tungstenite.workspace = true
+futures.workspace = true
+portable-pty = "0.8"
+uuid = { version = "1", features = ["v4"] }
+term_size = "0.3"
+termios = "0.3"
+clap = { version = "4", features = ["derive"] }

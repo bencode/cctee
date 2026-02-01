@@ -1,22 +1,16 @@
-[package]
-name = "cctee"
+[workspace]
+resolver = "2"
+members = ["cctee-common", "cctee-server", "cctee-wrapper"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
-description = "Claude Code session aggregator - tee-style wrapper for multiple sessions"
 
-[dependencies]
-portable-pty = "0.8"
+[workspace.dependencies]
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features = ["json"] }
-axum = "0.7"
-clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1", features = ["v4"] }
-tower-http = { version = "0.5", features = ["cors"] }
-futures = "0.3"
-tokio-stream = { version = "0.1", features = ["sync"] }
 anyhow = "1"
-term_size = "0.3"
-termios = "0.3"
+tokio-tungstenite = "0.24"
+futures = "0.3"

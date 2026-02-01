@@ -1,8 +1,30 @@
-export type OutputEvent = {
+export type OutputMessage = {
+  type: 'output'
   session_id: string
   content: string
   timestamp: string
 }
+
+export type InputMessage = {
+  type: 'input'
+  session_id: string
+  content: string
+}
+
+export type SessionStartMessage = {
+  type: 'session_start'
+  session_id: string
+  command: string
+  timestamp: string
+}
+
+export type SessionEndMessage = {
+  type: 'session_end'
+  session_id: string
+  timestamp: string
+}
+
+export type Message = OutputMessage | InputMessage | SessionStartMessage | SessionEndMessage
 
 export type SessionInfo = {
   id: string
