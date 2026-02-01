@@ -1,6 +1,49 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Token for authentication and session isolation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Token {
+    pub value: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+impl Token {
+    /// Generate a new token with 8-char nanoid and 24h expiry
+    pub fn generate() -> Self {
+        Self {
+            value: nanoid::nanoid!(8),
+            expires_at: Utc::now() + chrono::Duration::hours(24),
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        Utc::now() < self.expires_at
+    }
+}
+
+/// Response for token creation API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenResponse {
+    pub token: String,
+    pub expires_at: DateTime<Utc>,
+    pub ws_url: String,
+    pub command_hint: String,
+}
+
+/// Request for token validation API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenValidateRequest {
+    pub token: String,
+}
+
+/// Response for token validation API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenValidateResponse {
+    pub valid: bool,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
 /// WebSocket message types for communication between UI, Server, and Wrapper
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
