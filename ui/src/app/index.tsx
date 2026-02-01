@@ -5,6 +5,14 @@ import '@xterm/xterm/css/xterm.css'
 import { useWebSocket } from '../use-websocket'
 import styles from './style.module.scss'
 
+// 过滤横线分隔符
+// 匹配：可选的颜色设置 ANSI 序列 + 连续 10 个以上的横线字符 + 可选的重置序列
+const filterOutput = (content: string): string => {
+  // 匹配连续的横线字符（可能夹杂 ANSI 颜色序列）
+  // 横线字符: ─ (U+2500)
+  return content.replace(/(\x1b\[[0-9;]*m)*[─]{10,}(\x1b\[[0-9;]*m)*/g, '')
+}
+
 function App() {
   const terminalsRef = useRef<Map<string, Terminal>>(new Map())
   const [selectedSession, setSelectedSession] = useState<string | null>(null)
@@ -12,7 +20,7 @@ function App() {
   const handleOutput = useCallback((sessionId: string, content: string) => {
     const terminal = terminalsRef.current.get(sessionId)
     if (terminal) {
-      terminal.write(content)
+      terminal.write(filterOutput(content))
       terminal.scrollToBottom()
     }
   }, [])
@@ -70,7 +78,7 @@ function App() {
         )}
       </header>
 
-      <main className={`${styles.sessions} ${styles[`count${Math.min(sessionIds.size, 3)}`] || ''}`}>
+      <main className={styles.sessions}>
         {sessionIds.size === 0 ? (
           <div className={styles.empty}>
             <p>No active sessions</p>
@@ -81,7 +89,6 @@ function App() {
             <SessionPanel
               key={id}
               sessionId={id}
-              sessionCount={sessionIds.size}
               isActive={id === activeSession}
               onSelect={() => setSelectedSession(id)}
               onRegister={registerTerminal}
@@ -105,14 +112,12 @@ function App() {
 
 function SessionPanel({
   sessionId,
-  sessionCount,
   isActive,
   onSelect,
   onRegister,
   onClear,
 }: {
   sessionId: string
-  sessionCount: number
   isActive: boolean
   onSelect: () => void
   onRegister: (sessionId: string, terminal: Terminal) => void
@@ -162,22 +167,16 @@ function SessionPanel({
     fitAddonRef.current = fitAddon
     onRegister(sessionId, terminal)
 
-    const handleResize = () => fitAddon.fit()
-    window.addEventListener('resize', handleResize)
+    // Use ResizeObserver to handle all size changes
+    const resizeObserver = new ResizeObserver(() => {
+      fitAddon.fit()
+    })
+    resizeObserver.observe(containerRef.current)
 
     return () => {
-      window.removeEventListener('resize', handleResize)
+      resizeObserver.disconnect()
     }
   }, [sessionId, onRegister])
-
-  // Re-fit terminal when session count changes (layout changes)
-  useEffect(() => {
-    if (fitAddonRef.current) {
-      // Delay fit to allow CSS transition
-      const timer = setTimeout(() => fitAddonRef.current?.fit(), 50)
-      return () => clearTimeout(timer)
-    }
-  }, [sessionCount])
 
   const handleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return
