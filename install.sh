@@ -4,20 +4,13 @@ set -e
 REPO="bencode/cctee"
 INSTALL_DIR="/usr/local/bin"
 
-# Detect architecture
+# Check architecture
 ARCH=$(uname -m)
-case "$ARCH" in
-  x86_64)
-    TARGET="x86_64-apple-darwin"
-    ;;
-  arm64|aarch64)
-    TARGET="aarch64-apple-darwin"
-    ;;
-  *)
-    echo "Unsupported architecture: $ARCH"
-    exit 1
-    ;;
-esac
+if [ "$ARCH" != "arm64" ] && [ "$ARCH" != "aarch64" ]; then
+  echo "Error: Only Apple Silicon (arm64) is supported"
+  echo "Your architecture: $ARCH"
+  exit 1
+fi
 
 # Get latest release tag
 echo "Fetching latest release..."
@@ -31,7 +24,7 @@ fi
 echo "Latest version: $LATEST"
 
 # Download
-DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST/cctee-$TARGET.tar.gz"
+DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST/cctee-aarch64-apple-darwin.tar.gz"
 echo "Downloading from $DOWNLOAD_URL..."
 
 TMP_DIR=$(mktemp -d)
