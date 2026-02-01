@@ -7,14 +7,36 @@ use axum::{
     },
     Json,
 };
+use chrono::{DateTime, Utc};
 use futures::stream::Stream;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use tokio_stream::{wrappers::BroadcastStream, StreamExt};
 
 use cctee_common::{Message, Token, TokenResponse, TokenValidateRequest, TokenValidateResponse};
 
 use crate::{ws::TokenQuery, AppState, TokenState};
+
+#[derive(Serialize)]
+pub struct TokenInfo {
+    pub token: String,
+    pub expires_at: DateTime<Utc>,
+    pub sessions: usize,
+    pub is_valid: bool,
+}
+
+#[derive(Serialize)]
+pub struct StatusSummary {
+    pub total_tokens: usize,
+    pub valid_tokens: usize,
+    pub total_sessions: usize,
+}
+
+#[derive(Serialize)]
+pub struct StatusResponse {
+    pub tokens: Vec<TokenInfo>,
+    pub summary: StatusSummary,
+}
 
 /// POST /api/token - Create a new token
 pub async fn create_token(State(state): State<AppState>) -> Json<TokenResponse> {
@@ -129,4 +151,39 @@ pub async fn events(
             .interval(std::time::Duration::from_secs(15))
             .text("ping"),
     ))
+}
+
+/// GET /api/status - Get server status
+pub async fn get_status(State(state): State<AppState>) -> Json<StatusResponse> {
+    let tokens = state.tokens.read().await;
+
+    let mut token_infos = Vec::new();
+    let mut valid_tokens = 0;
+    let mut total_sessions = 0;
+
+    for (token_value, token_state) in tokens.iter() {
+        let sessions = token_state.wrappers.read().await.len();
+        let is_valid = token_state.token.is_valid();
+
+        if is_valid {
+            valid_tokens += 1;
+        }
+        total_sessions += sessions;
+
+        token_infos.push(TokenInfo {
+            token: token_value.clone(),
+            expires_at: token_state.token.expires_at,
+            sessions,
+            is_valid,
+        });
+    }
+
+    Json(StatusResponse {
+        tokens: token_infos,
+        summary: StatusSummary {
+            total_tokens: tokens.len(),
+            valid_tokens,
+            total_sessions,
+        },
+    })
 }

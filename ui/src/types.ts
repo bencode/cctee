@@ -44,3 +44,21 @@ export type TokenValidateResponse = {
   valid: boolean
   expires_at: string | null
 }
+
+export type TokenInfo = {
+  token: string
+  expires_at: string
+  sessions: number
+  is_valid: boolean
+}
+
+export type StatusSummary = {
+  total_tokens: number
+  valid_tokens: number
+  total_sessions: number
+}
+
+export type StatusResponse = {
+  tokens: TokenInfo[]
+  summary: StatusSummary
+}

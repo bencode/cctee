@@ -7,7 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
 
-use api::{create_token, events, send_input, validate_token};
+use api::{create_token, events, get_status, send_input, validate_token};
 use ws::{handle_wrapper_ws, TokenState};
 
 #[derive(Clone)]
@@ -43,6 +43,7 @@ async fn main() -> Result<()> {
         .route("/api/token/validate", post(validate_token))
         .route("/api/input", post(send_input))
         .route("/api/events", get(events))
+        .route("/api/status", get(get_status))
         .route("/ws/wrapper", get(handle_wrapper_ws))
         .layer(cors)
         .with_state(state);
