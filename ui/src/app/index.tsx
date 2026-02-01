@@ -7,15 +7,23 @@ import styles from './style.module.scss'
 
 function App() {
   const terminalsRef = useRef<Map<string, Terminal>>(new Map())
+  const [selectedSession, setSelectedSession] = useState<string | null>(null)
 
   const handleOutput = useCallback((sessionId: string, content: string) => {
     const terminal = terminalsRef.current.get(sessionId)
     if (terminal) {
       terminal.write(content)
+      terminal.scrollToBottom()
     }
   }, [])
 
   const { sessionIds, connected, sendInput, removeSession, clearAll } = useWebSocket(handleOutput)
+
+  // Compute effective active session: use selected if valid, otherwise first session
+  const sessionArray = Array.from(sessionIds)
+  const activeSession = selectedSession && sessionIds.has(selectedSession)
+    ? selectedSession
+    : sessionArray[0] ?? null
 
   const registerTerminal = useCallback((sessionId: string, terminal: Terminal) => {
     terminalsRef.current.set(sessionId, terminal)
@@ -38,7 +46,14 @@ function App() {
     terminalsRef.current.forEach((terminal) => terminal.dispose())
     terminalsRef.current.clear()
     clearAll()
+    setSelectedSession(null)
   }, [clearAll])
+
+  const handleSendInput = useCallback((content: string) => {
+    if (activeSession) {
+      sendInput(activeSession, content + '\n')
+    }
+  }, [activeSession, sendInput])
 
   return (
     <div className={styles.app}>
@@ -55,7 +70,7 @@ function App() {
         )}
       </header>
 
-      <main className={styles.sessions}>
+      <main className={`${styles.sessions} ${styles[`count${Math.min(sessionIds.size, 3)}`] || ''}`}>
         {sessionIds.size === 0 ? (
           <div className={styles.empty}>
             <p>No active sessions</p>
@@ -66,32 +81,46 @@ function App() {
             <SessionPanel
               key={id}
               sessionId={id}
+              sessionCount={sessionIds.size}
+              isActive={id === activeSession}
+              onSelect={() => setSelectedSession(id)}
               onRegister={registerTerminal}
               onClear={() => handleClearSession(id)}
-              onInput={(content) => sendInput(id, content)}
             />
           ))
         )}
       </main>
+
+      {sessionIds.size > 0 && (
+        <InputBar
+          sessionIds={Array.from(sessionIds)}
+          activeSession={activeSession}
+          onSelectSession={setSelectedSession}
+          onSend={handleSendInput}
+        />
+      )}
     </div>
   )
 }
 
 function SessionPanel({
   sessionId,
+  sessionCount,
+  isActive,
+  onSelect,
   onRegister,
   onClear,
-  onInput,
 }: {
   sessionId: string
+  sessionCount: number
+  isActive: boolean
+  onSelect: () => void
   onRegister: (sessionId: string, terminal: Terminal) => void
   onClear: () => void
-  onInput: (content: string) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
-  const [inputValue, setInputValue] = useState('')
 
   useEffect(() => {
     if (!containerRef.current || terminalRef.current) return
@@ -141,32 +170,90 @@ function SessionPanel({
     }
   }, [sessionId, onRegister])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (inputValue.trim()) {
-      onInput(inputValue + '\n')
-      setInputValue('')
+  // Re-fit terminal when session count changes (layout changes)
+  useEffect(() => {
+    if (fitAddonRef.current) {
+      // Delay fit to allow CSS transition
+      const timer = setTimeout(() => fitAddonRef.current?.fit(), 50)
+      return () => clearTimeout(timer)
     }
+  }, [sessionCount])
+
+  const handleClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return
+    onSelect()
   }
 
   return (
-    <div className={styles.session}>
+    <div
+      className={`${styles.session} ${isActive ? styles.active : ''}`}
+      onClick={handleClick}
+    >
       <div className={styles.sessionHeader}>
         <span className={styles.sessionId}>{sessionId.slice(0, 8)}</span>
         <button className={styles.close} onClick={onClear}>×</button>
       </div>
       <div className={styles.terminalContainer} ref={containerRef} />
-      <form className={styles.inputForm} onSubmit={handleSubmit}>
-        <input
-          type="text"
-          className={styles.input}
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Type input and press Enter..."
-        />
-        <button type="submit" className={styles.sendButton}>Send</button>
-      </form>
     </div>
+  )
+}
+
+function InputBar({
+  sessionIds,
+  activeSession,
+  onSelectSession,
+  onSend,
+}: {
+  sessionIds: string[]
+  activeSession: string | null
+  onSelectSession: (id: string) => void
+  onSend: (content: string) => void
+}) {
+  const [inputValue, setInputValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (inputValue.trim() && activeSession) {
+      onSend(inputValue)
+      setInputValue('')
+    }
+  }
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [activeSession])
+
+  return (
+    <form className={styles.inputBar} onSubmit={handleSubmit}>
+      <select
+        className={styles.sessionSelect}
+        value={activeSession || ''}
+        onChange={(e) => onSelectSession(e.target.value)}
+      >
+        {sessionIds.map((id) => (
+          <option key={id} value={id}>
+            {id.slice(0, 8)}
+          </option>
+        ))}
+      </select>
+      <input
+        ref={inputRef}
+        type="text"
+        className={styles.input}
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        placeholder={activeSession ? 'Type input and press Enter...' : 'Select a session'}
+        disabled={!activeSession}
+      />
+      <button
+        type="submit"
+        className={styles.sendButton}
+        disabled={!activeSession || !inputValue.trim()}
+      >
+        Send
+      </button>
+    </form>
   )
 }
 

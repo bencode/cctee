@@ -62,10 +62,41 @@
 .sessions {
   flex: 1;
   overflow: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  padding: 12px;
+  padding-bottom: 70px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+
+  // Default: 3 columns for 3+ sessions
+  grid-template-columns: repeat(3, 1fr);
+
+  // 1 session: full width
+  &.count1 {
+    grid-template-columns: 1fr;
+
+    .session {
+      height: auto;
+      min-height: 100%;
+    }
+  }
+
+  // 2 sessions: side by side
+  &.count2 {
+    grid-template-columns: repeat(2, 1fr);
+
+    .session {
+      height: auto;
+      min-height: 100%;
+    }
+  }
+
+  // 3+ sessions: fixed height cards
+  &.count3 {
+    .session {
+      height: 300px;
+    }
+  }
 }
 
 .empty {
@@ -76,6 +107,7 @@
   height: 100%;
   gap: 12px;
   color: #666;
+  grid-column: 1 / -1;
 
   code {
     padding: 8px 16px;
@@ -92,8 +124,18 @@
   background: #1e1e1e;
   border-radius: 8px;
   overflow: hidden;
-  flex: 1;
-  min-height: 300px;
+  height: 300px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: #444;
+  }
+
+  &.active {
+    border-color: #0dbc79;
+  }
 }
 
 .sessionHeader {
@@ -103,6 +145,7 @@
   padding: 8px 12px;
   background: #252525;
   border-bottom: 1px solid #333;
+  flex-shrink: 0;
 }
 
 .sessionId {
@@ -134,6 +177,7 @@
 .terminalContainer {
   flex: 1;
   padding: 8px;
+  min-height: 0;
 
   :global(.xterm) {
     height: 100%;
@@ -142,14 +186,44 @@
   :global(.xterm-viewport) {
     overflow-y: auto !important;
   }
+
+  :global(.xterm-screen) {
+    height: 100% !important;
+  }
 }
 
-.inputForm {
+.inputBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   gap: 8px;
-  padding: 8px 12px;
-  background: #252525;
+  padding: 12px;
+  background: #1a1a1a;
   border-top: 1px solid #333;
+}
+
+.sessionSelect {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: monospace;
+  color: #d4d4d4;
+  background: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  min-width: 100px;
+
+  &:focus {
+    border-color: #0dbc79;
+  }
+
+  option {
+    background: #1e1e1e;
+    color: #d4d4d4;
+  }
 }
 
 .input {
@@ -170,6 +244,11 @@
   &::placeholder {
     color: #666;
   }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
 .sendButton {
@@ -182,11 +261,16 @@
   cursor: pointer;
   transition: background 0.15s;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: #0ca86c;
   }
 
-  &:active {
+  &:active:not(:disabled) {
     background: #0a9660;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }
