@@ -101,9 +101,10 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
           {sessionIds.size > 0 ? `${sessionIds.size} session${sessionIds.size > 1 ? 's' : ''}` : 'Waiting'}
         </div>
         {sessionIds.size > 0 && (
-          <button className={styles.copyCommand} onClick={handleCopyCommand} title={commandHint}>
-            {copied ? 'Copied!' : 'Copy Command'}
-          </button>
+          <div className={styles.commandHint} onClick={handleCopyCommand} title="Click to copy">
+            <code>{commandHint}</code>
+            <span className={styles.copyIcon}>{copied ? '✓' : '⎘'}</span>
+          </div>
         )}
       </header>
 

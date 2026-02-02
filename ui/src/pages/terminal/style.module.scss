@@ -57,21 +57,40 @@
   }
 }
 
-.copyCommand {
+.commandHint {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 12px;
-  font-size: 12px;
-  color: #888;
-  background: transparent;
-  border: 1px solid #444;
+  background: #252525;
+  border: 1px solid #333;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
+  max-width: 400px;
+
+  code {
+    font-size: 12px;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   &:hover {
-    color: #fff;
-    border-color: #666;
+    border-color: #444;
+
+    code {
+      color: #aaa;
+    }
   }
+}
+
+.copyIcon {
+  font-size: 14px;
+  color: #666;
+  flex-shrink: 0;
 }
 
 .sessions {
