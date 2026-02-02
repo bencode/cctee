@@ -50,6 +50,12 @@ export function useEvents(token: string | null, onOutput: OutputHandler) {
           if (prev.has(message.session_id)) return prev
           return new Set([...prev, message.session_id])
         })
+      } else if (message.type === 'session_end') {
+        setSessionIds((prev) => {
+          const next = new Set(prev)
+          next.delete(message.session_id)
+          return next
+        })
       }
     }
 

@@ -98,6 +98,7 @@ async fn handle_wrapper_socket(socket: WebSocket, state: AppState, token: String
         // Cleanup on disconnect
         if let Some(id) = session_id {
             wrappers.write().await.remove(&id);
+            let _ = ui_tx.send(Message::session_end(&id));
         }
     });
 
