@@ -2,12 +2,7 @@
     handle /api/* {
         reverse_proxy server:4111
     }
-    @websocket {
-        header Connection *Upgrade*
-        header Upgrade websocket
-    }
     handle /ws/* {
-        reverse_proxy @websocket server:4111
         reverse_proxy server:4111
     }
     handle {
