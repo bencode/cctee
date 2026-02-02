@@ -15,6 +15,7 @@ export type SessionStartMessage = {
   type: 'session_start'
   session_id: string
   command: string
+  name?: string
   timestamp: string
 }
 
@@ -36,9 +37,15 @@ export type Message =
   | SessionEndMessage
   | ActiveSessionsMessage
 
+export type SessionData = {
+  id: string
+  name?: string
+}
+
 export type SessionInfo = {
   id: string
   command: string
+  name?: string
   started_at: string
   last_activity: string
 }

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import type { Message } from './types'
+import type { Message, SessionData } from './types'
 
 type OutputHandler = (sessionId: string, content: string) => void
 
 export function useEvents(token: string | null, onOutput: OutputHandler) {
-  const [sessionIds, setSessionIds] = useState<Set<string>>(new Set())
+  const [sessions, setSessions] = useState<Map<string, SessionData>>(new Map())
   const [connected, setConnected] = useState(false)
   const eventSourceRef = useRef<EventSource | null>(null)
   const onOutputRef = useRef(onOutput)
@@ -40,24 +40,27 @@ export function useEvents(token: string | null, onOutput: OutputHandler) {
       const message: Message = JSON.parse(event.data)
 
       if (message.type === 'output') {
-        setSessionIds((prev) => {
+        setSessions((prev) => {
           if (prev.has(message.session_id)) return prev
-          return new Set([...prev, message.session_id])
+          const next = new Map(prev)
+          next.set(message.session_id, { id: message.session_id })
+          return next
         })
         onOutputRef.current(message.session_id, message.content)
       } else if (message.type === 'session_start') {
-        setSessionIds((prev) => {
-          if (prev.has(message.session_id)) return prev
-          return new Set([...prev, message.session_id])
+        setSessions((prev) => {
+          const next = new Map(prev)
+          next.set(message.session_id, { id: message.session_id, name: message.name })
+          return next
         })
       } else if (message.type === 'session_end') {
-        setSessionIds((prev) => {
-          const next = new Set(prev)
+        setSessions((prev) => {
+          const next = new Map(prev)
           next.delete(message.session_id)
           return next
         })
       } else if (message.type === 'active_sessions') {
-        setSessionIds(new Set(message.session_ids))
+        setSessions(new Map(message.session_ids.map((id) => [id, { id }])))
       }
     }
 
@@ -75,12 +78,12 @@ export function useEvents(token: string | null, onOutput: OutputHandler) {
   }, [connect])
 
   const removeSession = useCallback((sessionId: string) => {
-    setSessionIds((prev) => {
-      const next = new Set(prev)
+    setSessions((prev) => {
+      const next = new Map(prev)
       next.delete(sessionId)
       return next
     })
   }, [])
 
-  return { sessionIds, connected, removeSession }
+  return { sessions, connected, removeSession }
 }

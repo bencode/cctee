@@ -4,10 +4,13 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { useToken } from '../../use-token'
 import { useEvents } from '../../use-events'
+import { filterDesktopOutput } from '../../utils/ansi-filter'
+import type { SessionData } from '../../types'
 import styles from './style.module.scss'
 
-const filterOutput = (content: string): string => {
-  return content.replace(/(\\x1b\\[[0-9;]*m)*[─]{10,}(\\x1b\\[[0-9;]*m)*/g, '')
+function formatSessionLabel(session: SessionData): string {
+  const shortId = session.id.slice(0, 8)
+  return session.name ? `${session.name} (${shortId})` : shortId
 }
 
 export function TerminalPage() {
@@ -46,12 +49,12 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
   const handleOutput = useCallback((sessionId: string, content: string) => {
     const terminal = terminalsRef.current.get(sessionId)
     if (terminal) {
-      terminal.write(filterOutput(content))
+      terminal.write(filterDesktopOutput(content))
       terminal.scrollToBottom()
     }
   }, [])
 
-  const { sessionIds, removeSession } = useEvents(token, handleOutput)
+  const { sessions, removeSession } = useEvents(token, handleOutput)
 
   const sendInput = useCallback(async (sessionId: string, content: string) => {
     const res = await fetch('/api/input', {
@@ -64,10 +67,10 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
     }
   }, [token])
 
-  const sessionArray = Array.from(sessionIds)
-  const activeSession = selectedSession && sessionIds.has(selectedSession)
+  const sessionArray = Array.from(sessions.values())
+  const activeSession = selectedSession && sessions.has(selectedSession)
     ? selectedSession
-    : sessionArray[0] ?? null
+    : sessionArray[0]?.id ?? null
 
   const registerTerminal = useCallback((sessionId: string, terminal: Terminal) => {
     terminalsRef.current.set(sessionId, terminal)
@@ -97,10 +100,10 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
       <header className={styles.header}>
         <h1>cctee</h1>
         <div className={styles.status}>
-          <span className={`${styles.dot} ${sessionIds.size > 0 ? styles.connected : styles.disconnected}`} />
-          {sessionIds.size > 0 ? `${sessionIds.size} session${sessionIds.size > 1 ? 's' : ''}` : 'Waiting'}
+          <span className={`${styles.dot} ${sessions.size > 0 ? styles.connected : styles.disconnected}`} />
+          {sessions.size > 0 ? `${sessions.size} session${sessions.size > 1 ? 's' : ''}` : 'Waiting'}
         </div>
-        {sessionIds.size > 0 && (
+        {sessions.size > 0 && (
           <div className={styles.commandHint} onClick={handleCopyCommand} title="Click to copy">
             <code>{commandHint}</code>
             <span className={styles.copyIcon}>{copied ? '✓' : '⎘'}</span>
@@ -109,25 +112,25 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
       </header>
 
       <main className={styles.sessions}>
-        {sessionIds.size === 0 ? (
+        {sessions.size === 0 ? (
           <TokenGuide commandHint={commandHint} />
         ) : (
-          Array.from(sessionIds).map((id) => (
+          sessionArray.map((session) => (
             <SessionPanel
-              key={id}
-              sessionId={id}
-              isActive={id === activeSession}
-              onSelect={() => setSelectedSession(id)}
+              key={session.id}
+              session={session}
+              isActive={session.id === activeSession}
+              onSelect={() => setSelectedSession(session.id)}
               onRegister={registerTerminal}
-              onClear={() => handleClearSession(id)}
+              onClear={() => handleClearSession(session.id)}
             />
           ))
         )}
       </main>
 
-      {sessionIds.size > 0 && (
+      {sessions.size > 0 && (
         <InputBar
-          sessionIds={Array.from(sessionIds)}
+          sessions={sessionArray}
           activeSession={activeSession}
           onSelectSession={setSelectedSession}
           onSend={handleSendInput}
@@ -161,13 +164,13 @@ function TokenGuide({ commandHint }: { commandHint: string }) {
 }
 
 function SessionPanel({
-  sessionId,
+  session,
   isActive,
   onSelect,
   onRegister,
   onClear,
 }: {
-  sessionId: string
+  session: SessionData
   isActive: boolean
   onSelect: () => void
   onRegister: (sessionId: string, terminal: Terminal) => void
@@ -215,7 +218,7 @@ function SessionPanel({
 
     terminalRef.current = terminal
     fitAddonRef.current = fitAddon
-    onRegister(sessionId, terminal)
+    onRegister(session.id, terminal)
 
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit()
@@ -225,7 +228,7 @@ function SessionPanel({
     return () => {
       resizeObserver.disconnect()
     }
-  }, [sessionId, onRegister])
+  }, [session.id, onRegister])
 
   const handleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return
@@ -238,7 +241,7 @@ function SessionPanel({
       onClick={handleClick}
     >
       <div className={styles.sessionHeader}>
-        <span className={styles.sessionId}>{sessionId.slice(0, 8)}</span>
+        <span className={styles.sessionId}>{formatSessionLabel(session)}</span>
         <button className={styles.close} onClick={onClear}>×</button>
       </div>
       <div className={styles.terminalContainer} ref={containerRef} />
@@ -247,12 +250,12 @@ function SessionPanel({
 }
 
 function InputBar({
-  sessionIds,
+  sessions,
   activeSession,
   onSelectSession,
   onSend,
 }: {
-  sessionIds: string[]
+  sessions: SessionData[]
   activeSession: string | null
   onSelectSession: (id: string) => void
   onSend: (content: string) => void
@@ -279,9 +282,9 @@ function InputBar({
         value={activeSession || ''}
         onChange={(e) => onSelectSession(e.target.value)}
       >
-        {sessionIds.map((id) => (
-          <option key={id} value={id}>
-            {id.slice(0, 8)}
+        {sessions.map((session) => (
+          <option key={session.id} value={session.id}>
+            {formatSessionLabel(session)}
           </option>
         ))}
       </select>

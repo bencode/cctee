@@ -8,7 +8,7 @@ use std::sync::Arc;
 use termios::{tcsetattr, Termios, TCSANOW};
 use uuid::Uuid;
 
-pub async fn run(command: &str, args: &[String], server_url: &str) -> Result<()> {
+pub async fn run(command: &str, args: &[String], server_url: &str, name: Option<&str>) -> Result<()> {
     let session_id = Uuid::new_v4().to_string();
     let pty_system = native_pty_system();
 
@@ -34,7 +34,7 @@ pub async fn run(command: &str, args: &[String], server_url: &str) -> Result<()>
         .chain(args.iter().cloned())
         .collect::<Vec<_>>()
         .join(" ");
-    ws.send(Message::session_start(&session_id, &full_command));
+    ws.send(Message::session_start(&session_id, &full_command, name.map(String::from)));
 
     // Set stdin to raw mode
     let stdin = std::io::stdin();

@@ -15,6 +15,10 @@ struct Cli {
     #[arg(short, long)]
     token: Option<String>,
 
+    /// Session name for identification
+    #[arg(short, long)]
+    name: Option<String>,
+
     /// Command to wrap
     #[arg(trailing_var_arg = true, required = true)]
     args: Vec<String>,
@@ -35,7 +39,7 @@ async fn main() -> Result<()> {
     // Build WebSocket URL with token if provided
     let ws_url = build_ws_url(&cli.server, cli.token.as_deref());
 
-    pty::run(command, args, &ws_url).await
+    pty::run(command, args, &ws_url, cli.name.as_deref()).await
 }
 
 fn build_ws_url(server: &str, token: Option<&str>) -> String {

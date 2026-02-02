@@ -65,6 +65,7 @@ pub enum Message {
     SessionStart {
         session_id: String,
         command: String,
+        name: Option<String>,
         timestamp: DateTime<Utc>,
     },
 
@@ -94,10 +95,15 @@ impl Message {
         }
     }
 
-    pub fn session_start(session_id: impl Into<String>, command: impl Into<String>) -> Self {
+    pub fn session_start(
+        session_id: impl Into<String>,
+        command: impl Into<String>,
+        name: Option<String>,
+    ) -> Self {
         Self::SessionStart {
             session_id: session_id.into(),
             command: command.into(),
+            name,
             timestamp: Utc::now(),
         }
     }
@@ -128,6 +134,7 @@ impl Message {
 pub struct SessionInfo {
     pub id: String,
     pub command: String,
+    pub name: Option<String>,
     pub started_at: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
 }
