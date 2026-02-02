@@ -135,16 +135,28 @@ pub async fn events(
         _ => return Err(StatusCode::UNAUTHORIZED),
     };
 
+    // Get current active session IDs
+    let active_session_ids: Vec<String> = token_state.wrappers.read().await.keys().cloned().collect();
+
     let rx = token_state.ui_tx.subscribe();
     drop(tokens);
 
-    let stream = BroadcastStream::new(rx).filter_map(|result| match result {
+    // Create initial message with active sessions
+    let initial_msg = Message::active_sessions(active_session_ids);
+    let initial_event = serde_json::to_string(&initial_msg)
+        .ok()
+        .map(|json| Ok(Event::default().data(json)));
+
+    let broadcast_stream = BroadcastStream::new(rx).filter_map(|result| match result {
         Ok(msg) => match serde_json::to_string(&msg) {
             Ok(json) => Some(Ok(Event::default().data(json))),
             Err(_) => None,
         },
         Err(_) => None,
     });
+
+    // Prepend initial event to the stream
+    let stream = futures::stream::iter(initial_event).chain(broadcast_stream);
 
     Ok(Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()

@@ -73,6 +73,9 @@ pub enum Message {
         session_id: String,
         timestamp: DateTime<Utc>,
     },
+
+    /// Server → UI: List of active sessions (sent on connect)
+    ActiveSessions { session_ids: Vec<String> },
 }
 
 impl Message {
@@ -112,7 +115,12 @@ impl Message {
             Self::Input { session_id, .. } => session_id,
             Self::SessionStart { session_id, .. } => session_id,
             Self::SessionEnd { session_id, .. } => session_id,
+            Self::ActiveSessions { .. } => "",
         }
+    }
+
+    pub fn active_sessions(session_ids: Vec<String>) -> Self {
+        Self::ActiveSessions { session_ids }
     }
 }
 

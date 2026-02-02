@@ -24,7 +24,17 @@ export type SessionEndMessage = {
   timestamp: string
 }
 
-export type Message = OutputMessage | InputMessage | SessionStartMessage | SessionEndMessage
+export type ActiveSessionsMessage = {
+  type: 'active_sessions'
+  session_ids: string[]
+}
+
+export type Message =
+  | OutputMessage
+  | InputMessage
+  | SessionStartMessage
+  | SessionEndMessage
+  | ActiveSessionsMessage
 
 export type SessionInfo = {
   id: string

@@ -56,6 +56,8 @@ export function useEvents(token: string | null, onOutput: OutputHandler) {
           next.delete(message.session_id)
           return next
         })
+      } else if (message.type === 'active_sessions') {
+        setSessionIds(new Set(message.session_ids))
       }
     }
 
