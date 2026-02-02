@@ -35,6 +35,13 @@ export function TerminalPage() {
 function AppContent({ token, commandHint }: { token: string; commandHint: string }) {
   const terminalsRef = useRef<Map<string, Terminal>>(new Map())
   const [selectedSession, setSelectedSession] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopyCommand = async () => {
+    await navigator.clipboard.writeText(commandHint)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   const handleOutput = useCallback((sessionId: string, content: string) => {
     const terminal = terminalsRef.current.get(sessionId)
@@ -44,7 +51,7 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
     }
   }, [])
 
-  const { sessionIds, removeSession, clearAll } = useEvents(token, handleOutput)
+  const { sessionIds, removeSession } = useEvents(token, handleOutput)
 
   const sendInput = useCallback(async (sessionId: string, content: string) => {
     const res = await fetch('/api/input', {
@@ -79,13 +86,6 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
     removeSession(sessionId)
   }, [unregisterTerminal, removeSession])
 
-  const handleClearAll = useCallback(() => {
-    terminalsRef.current.forEach((terminal) => terminal.dispose())
-    terminalsRef.current.clear()
-    clearAll()
-    setSelectedSession(null)
-  }, [clearAll])
-
   const handleSendInput = useCallback((content: string) => {
     if (activeSession) {
       sendInput(activeSession, content + '\n')
@@ -101,8 +101,8 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
           {sessionIds.size > 0 ? `${sessionIds.size} session${sessionIds.size > 1 ? 's' : ''}` : 'Waiting'}
         </div>
         {sessionIds.size > 0 && (
-          <button className={styles.clearAll} onClick={handleClearAll}>
-            Clear All
+          <button className={styles.copyCommand} onClick={handleCopyCommand} title={commandHint}>
+            {copied ? 'Copied!' : 'Copy Command'}
           </button>
         )}
       </header>

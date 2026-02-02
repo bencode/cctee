@@ -80,7 +80,5 @@ export function useEvents(token: string | null, onOutput: OutputHandler) {
     })
   }, [])
 
-  const clearAll = useCallback(() => setSessionIds(new Set()), [])
-
-  return { sessionIds, connected, removeSession, clearAll }
+  return { sessionIds, connected, removeSession }
 }
