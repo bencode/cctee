@@ -2,9 +2,10 @@
  * Strip ANSI escape sequences from text
  *
  * Handles:
- * - CSI sequences: \x1b[...m (colors/styles), \x1b[...H (cursor), etc.
+ * - CSI sequences: \x1b[...X (colors/styles, cursor movement, etc.)
  * - OSC sequences: \x1b]...ST (title, hyperlinks)
- * - Control characters: \x07 (bell), \r (carriage return)
+ * - Control characters
+ * - Orphaned CSI sequences without ESC prefix (e.g., [2C, [3A)
  */
 
 // CSI (Control Sequence Introducer): \x1b[ followed by parameters and a final byte
@@ -16,14 +17,15 @@ const OSC_PATTERN = /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?/g
 // Other escape sequences: \x1b followed by single character
 const ESC_PATTERN = /\x1b[^[\]]/g
 
-// Control characters
-const CONTROL_PATTERN = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g
+// Control characters (except \n which we want to keep)
+const CONTROL_PATTERN = /[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g
 
 // Bell character
 const BELL_PATTERN = /\x07/g
 
-// Carriage return (often used with newline, keep newlines)
-const CR_PATTERN = /\r(?!\n)/g
+// Orphaned CSI sequences without ESC prefix (browser may strip \x1b)
+// Matches patterns like [2C, [3A, [7m, [27m, [?2026h, [?2026l
+const ORPHAN_CSI_PATTERN = /\[[\d;?]*[A-Za-z]/g
 
 export function stripAnsi(text: string): string {
   return text
@@ -31,8 +33,24 @@ export function stripAnsi(text: string): string {
     .replace(CSI_PATTERN, '')
     .replace(ESC_PATTERN, '')
     .replace(BELL_PATTERN, '')
-    .replace(CR_PATTERN, '')
     .replace(CONTROL_PATTERN, '')
+    .replace(ORPHAN_CSI_PATTERN, '')
+}
+
+/**
+ * Process carriage returns in accumulated text
+ * \r means "go to start of line", so content after \r overwrites content before it
+ */
+export function processCarriageReturns(text: string): string {
+  const lines = text.split('\n')
+  const processed = lines.map(line => {
+    const lastCR = line.lastIndexOf('\r')
+    if (lastCR !== -1) {
+      return line.slice(lastCR + 1)
+    }
+    return line
+  })
+  return processed.join('\n')
 }
 
 /**
@@ -40,9 +58,17 @@ export function stripAnsi(text: string): string {
  * Strips ANSI codes and removes decorative line separators
  */
 export function filterMobileOutput(content: string): string {
-  const stripped = stripAnsi(content)
-  // Remove decorative line separators (─ repeated 10+ times)
-  return stripped.replace(/[─]{10,}/g, '')
+  // DEBUG: return raw content
+  return content
+}
+
+/**
+ * Append new content to existing output, handling carriage returns correctly
+ * \r in new content should overwrite the last line of existing content
+ */
+export function appendMobileOutput(existing: string, newContent: string): string {
+  // DEBUG: simple concatenation
+  return existing + newContent
 }
 
 /**

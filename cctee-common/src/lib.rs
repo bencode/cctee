@@ -76,7 +76,13 @@ pub enum Message {
     },
 
     /// Server → UI: List of active sessions (sent on connect)
-    ActiveSessions { session_ids: Vec<String> },
+    ActiveSessions { sessions: Vec<SessionBasicInfo> },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionBasicInfo {
+    pub id: String,
+    pub name: Option<String>,
 }
 
 impl Message {
@@ -125,8 +131,8 @@ impl Message {
         }
     }
 
-    pub fn active_sessions(session_ids: Vec<String>) -> Self {
-        Self::ActiveSessions { session_ids }
+    pub fn active_sessions(sessions: Vec<SessionBasicInfo>) -> Self {
+        Self::ActiveSessions { sessions }
     }
 }
 

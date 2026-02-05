@@ -14,7 +14,12 @@ use cctee_common::{Message, Token};
 
 use crate::AppState;
 
-pub type WrapperConnections = Arc<RwLock<HashMap<String, mpsc::Sender<Message>>>>;
+pub struct SessionConnection {
+    pub sender: mpsc::Sender<Message>,
+    pub name: Option<String>,
+}
+
+pub type WrapperConnections = Arc<RwLock<HashMap<String, SessionConnection>>>;
 
 /// Per-token state for session isolation
 pub struct TokenState {
@@ -82,11 +87,21 @@ async fn handle_wrapper_socket(socket: WebSocket, state: AppState, token: String
         while let Some(Ok(msg)) = receiver.next().await {
             if let WsMessage::Text(text) = msg {
                 if let Ok(message) = serde_json::from_str::<Message>(&text) {
-                    // Register wrapper on first message
+                    // Register wrapper on first message (session_start)
                     if session_id.is_none() {
                         let id = message.session_id().to_string();
+                        let name = match &message {
+                            Message::SessionStart { name, .. } => name.clone(),
+                            _ => None,
+                        };
                         session_id = Some(id.clone());
-                        wrappers.write().await.insert(id, input_tx.clone());
+                        wrappers.write().await.insert(
+                            id,
+                            SessionConnection {
+                                sender: input_tx.clone(),
+                                name,
+                            },
+                        );
                     }
 
                     // Broadcast to all UI clients for this token

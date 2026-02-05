@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use tokio_stream::{wrappers::BroadcastStream, StreamExt};
 
-use cctee_common::{Message, Token, TokenResponse, TokenValidateRequest, TokenValidateResponse};
+use cctee_common::{Message, SessionBasicInfo, Token, TokenResponse, TokenValidateRequest, TokenValidateResponse};
 
 use crate::{ws::TokenQuery, AppState, TokenState};
 
@@ -110,7 +110,7 @@ pub async fn send_input(
 
     let wrappers = token_state.wrappers.read().await;
     let tx = match wrappers.get(&req.session_id) {
-        Some(tx) => tx.clone(),
+        Some(conn) => conn.sender.clone(),
         None => return StatusCode::NOT_FOUND,
     };
     drop(wrappers);
@@ -135,14 +135,23 @@ pub async fn events(
         _ => return Err(StatusCode::UNAUTHORIZED),
     };
 
-    // Get current active session IDs
-    let active_session_ids: Vec<String> = token_state.wrappers.read().await.keys().cloned().collect();
+    // Get current active sessions with their names
+    let active_sessions: Vec<SessionBasicInfo> = token_state
+        .wrappers
+        .read()
+        .await
+        .iter()
+        .map(|(id, conn)| SessionBasicInfo {
+            id: id.clone(),
+            name: conn.name.clone(),
+        })
+        .collect();
 
     let rx = token_state.ui_tx.subscribe();
     drop(tokens);
 
     // Create initial message with active sessions
-    let initial_msg = Message::active_sessions(active_session_ids);
+    let initial_msg = Message::active_sessions(active_sessions);
     let initial_event = serde_json::to_string(&initial_msg)
         .ok()
         .map(|json| Ok(Event::default().data(json)));

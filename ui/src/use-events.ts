@@ -60,7 +60,7 @@ export function useEvents(token: string | null, onOutput: OutputHandler) {
           return next
         })
       } else if (message.type === 'active_sessions') {
-        setSessions(new Map(message.session_ids.map((id) => [id, { id }])))
+        setSessions(new Map(message.sessions.map((s) => [s.id, { id: s.id, name: s.name }])))
       }
     }
 

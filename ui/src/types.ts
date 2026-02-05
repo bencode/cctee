@@ -27,7 +27,7 @@ export type SessionEndMessage = {
 
 export type ActiveSessionsMessage = {
   type: 'active_sessions'
-  session_ids: string[]
+  sessions: Array<{ id: string; name?: string }>
 }
 
 export type Message =
