@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { TokenResponse, TokenValidateResponse } from './types'
+import { cleanupStaleTokens } from './db'
 
 type TokenState =
   | { status: 'loading' }
@@ -34,8 +35,9 @@ export function useToken() {
         const validation = await validateToken(urlToken)
         if (validation.valid) {
           const host = window.location.origin
-          const commandHint = `cctee --server=${host} --token=${urlToken} claude`
+          const commandHint = `teeclaude --server=${host} --token=${urlToken} claude`
           setState({ status: 'ready', token: urlToken, commandHint })
+          cleanupStaleTokens(urlToken).catch(console.error)
           return
         }
       }
@@ -45,8 +47,9 @@ export function useToken() {
       newUrl.searchParams.set('token', response.token)
       window.history.replaceState({}, '', newUrl.toString())
       const host = window.location.origin
-      const commandHint = `cctee --server=${host} --token=${response.token} claude`
+      const commandHint = `teeclaude --server=${host} --token=${response.token} claude`
       setState({ status: 'ready', token: response.token, commandHint })
+      cleanupStaleTokens(response.token).catch(console.error)
     } catch (err) {
       setState({ status: 'error', message: err instanceof Error ? err.message : 'Unknown error' })
     }

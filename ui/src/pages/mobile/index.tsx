@@ -1,7 +1,9 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useToken } from '../../use-token'
 import { useEvents } from '../../use-events'
-import { processMobileOutput, appendMobileOutput } from '../../utils/ansi-filter'
+import type { Unsubscribe } from '../../use-events'
+import { loadSessionOutput } from '../../db'
+import { processMobileOutput, appendMobileOutput, filterMobileOutput } from '../../utils/ansi-filter'
 import type { SessionData } from '../../types'
 import styles from './style.module.scss'
 
@@ -32,26 +34,12 @@ export function MobilePage() {
   return <MobileContent token={tokenState.token} commandHint={tokenState.commandHint} />
 }
 
+type SubscribeFn = (sessionId: string, callback: (content: string) => void) => Unsubscribe
+
 function MobileContent({ token, commandHint }: { token: string; commandHint: string }) {
-  const [outputs, setOutputs] = useState<Map<string, string>>(new Map())
   const [selectedSession, setSelectedSession] = useState<string | null>(null)
-  const outputRef = useRef<HTMLDivElement>(null)
 
-  const handleOutput = useCallback((sessionId: string, content: string) => {
-    const result = processMobileOutput(content)
-    setOutputs((prev) => {
-      const next = new Map(prev)
-      if (result.type === 'clear') {
-        next.set(sessionId, result.content)
-      } else {
-        const existing = next.get(sessionId) || ''
-        next.set(sessionId, appendMobileOutput(existing, result.content))
-      }
-      return next
-    })
-  }, [])
-
-  const { sessions, removeSession } = useEvents(token, handleOutput)
+  const { sessions, removeSession, subscribe } = useEvents(token)
 
   const sendInput = useCallback(async (sessionId: string, content: string) => {
     const res = await fetch('/api/input', {
@@ -70,11 +58,6 @@ function MobileContent({ token, commandHint }: { token: string; commandHint: str
     : sessionArray[0]?.id ?? null
 
   const handleClearSession = useCallback((sessionId: string) => {
-    setOutputs((prev) => {
-      const next = new Map(prev)
-      next.delete(sessionId)
-      return next
-    })
     removeSession(sessionId)
   }, [removeSession])
 
@@ -84,18 +67,10 @@ function MobileContent({ token, commandHint }: { token: string; commandHint: str
     }
   }, [activeSession, sendInput])
 
-  useEffect(() => {
-    if (outputRef.current) {
-      outputRef.current.scrollTop = outputRef.current.scrollHeight
-    }
-  }, [outputs, activeSession])
-
-  const activeOutput = activeSession ? outputs.get(activeSession) || '' : ''
-
   return (
     <div className={styles.app}>
       <header className={styles.header}>
-        <h1>cctee</h1>
+        <h1>teeclaude</h1>
         <div className={styles.status}>
           <span className={`${styles.dot} ${sessions.size > 0 ? styles.connected : styles.disconnected}`} />
           {sessions.size > 0 ? `${sessions.size} session${sessions.size > 1 ? 's' : ''}` : 'Waiting'}
@@ -114,9 +89,14 @@ function MobileContent({ token, commandHint }: { token: string; commandHint: str
       <main className={styles.content}>
         {sessions.size === 0 ? (
           <TokenGuide commandHint={commandHint} />
-        ) : (
-          <OutputView ref={outputRef} content={activeOutput} />
-        )}
+        ) : activeSession ? (
+          <SessionPanel
+            key={activeSession}
+            token={token}
+            sessionId={activeSession}
+            subscribe={subscribe}
+          />
+        ) : null}
       </main>
 
       {sessions.size > 0 && (
@@ -124,6 +104,48 @@ function MobileContent({ token, commandHint }: { token: string; commandHint: str
       )}
     </div>
   )
+}
+
+function SessionPanel({
+  token,
+  sessionId,
+  subscribe,
+}: {
+  token: string
+  sessionId: string
+  subscribe: SubscribeFn
+}) {
+  const [output, setOutput] = useState('')
+  const outputRef = useRef<HTMLDivElement>(null)
+
+  // Load history from IndexedDB
+  useEffect(() => {
+    loadSessionOutput(token, sessionId).then((output) => {
+      if (output) {
+        setOutput(filterMobileOutput(output))
+      }
+    }).catch(console.error)
+  }, [token, sessionId])
+
+  // Subscribe to real-time output
+  useEffect(() => {
+    return subscribe(sessionId, (content) => {
+      const result = processMobileOutput(content)
+      setOutput((prev) => {
+        if (result.type === 'clear') return result.content
+        return appendMobileOutput(prev, result.content)
+      })
+    })
+  }, [sessionId, subscribe])
+
+  // Auto-scroll
+  useEffect(() => {
+    if (outputRef.current) {
+      outputRef.current.scrollTop = outputRef.current.scrollHeight
+    }
+  }, [output])
+
+  return <OutputView ref={outputRef} content={output} />
 }
 
 function TokenGuide({ commandHint }: { commandHint: string }) {

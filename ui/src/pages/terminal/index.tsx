@@ -4,6 +4,8 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { useToken } from '../../use-token'
 import { useEvents } from '../../use-events'
+import type { Unsubscribe } from '../../use-events'
+import { loadSessionOutput } from '../../db'
 import { filterDesktopOutput } from '../../utils/ansi-filter'
 import type { SessionData } from '../../types'
 import styles from './style.module.scss'
@@ -35,8 +37,9 @@ export function TerminalPage() {
   return <AppContent token={tokenState.token} commandHint={tokenState.commandHint} />
 }
 
+type SubscribeFn = (sessionId: string, callback: (content: string) => void) => Unsubscribe
+
 function AppContent({ token, commandHint }: { token: string; commandHint: string }) {
-  const terminalsRef = useRef<Map<string, Terminal>>(new Map())
   const [selectedSession, setSelectedSession] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -46,15 +49,7 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleOutput = useCallback((sessionId: string, content: string) => {
-    const terminal = terminalsRef.current.get(sessionId)
-    if (terminal) {
-      terminal.write(filterDesktopOutput(content))
-      terminal.scrollToBottom()
-    }
-  }, [])
-
-  const { sessions, removeSession } = useEvents(token, handleOutput)
+  const { sessions, removeSession, subscribe } = useEvents(token)
 
   const sendInput = useCallback(async (sessionId: string, content: string) => {
     const res = await fetch('/api/input', {
@@ -72,22 +67,9 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
     ? selectedSession
     : sessionArray[0]?.id ?? null
 
-  const registerTerminal = useCallback((sessionId: string, terminal: Terminal) => {
-    terminalsRef.current.set(sessionId, terminal)
-  }, [])
-
-  const unregisterTerminal = useCallback((sessionId: string) => {
-    const terminal = terminalsRef.current.get(sessionId)
-    if (terminal) {
-      terminal.dispose()
-      terminalsRef.current.delete(sessionId)
-    }
-  }, [])
-
   const handleClearSession = useCallback((sessionId: string) => {
-    unregisterTerminal(sessionId)
     removeSession(sessionId)
-  }, [unregisterTerminal, removeSession])
+  }, [removeSession])
 
   const handleSendInput = useCallback((content: string) => {
     if (activeSession) {
@@ -98,7 +80,7 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
   return (
     <div className={styles.app}>
       <header className={styles.header}>
-        <h1>cctee</h1>
+        <h1>teeclaude</h1>
         <div className={styles.status}>
           <span className={`${styles.dot} ${sessions.size > 0 ? styles.connected : styles.disconnected}`} />
           {sessions.size > 0 ? `${sessions.size} session${sessions.size > 1 ? 's' : ''}` : 'Waiting'}
@@ -118,10 +100,11 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
           sessionArray.map((session) => (
             <SessionPanel
               key={session.id}
+              token={token}
               session={session}
               isActive={session.id === activeSession}
+              subscribe={subscribe}
               onSelect={() => setSelectedSession(session.id)}
-              onRegister={registerTerminal}
               onClear={() => handleClearSession(session.id)}
             />
           ))
@@ -164,16 +147,18 @@ function TokenGuide({ commandHint }: { commandHint: string }) {
 }
 
 function SessionPanel({
+  token,
   session,
   isActive,
+  subscribe,
   onSelect,
-  onRegister,
   onClear,
 }: {
+  token: string
   session: SessionData
   isActive: boolean
+  subscribe: SubscribeFn
   onSelect: () => void
-  onRegister: (sessionId: string, terminal: Terminal) => void
   onClear: () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -218,7 +203,13 @@ function SessionPanel({
 
     terminalRef.current = terminal
     fitAddonRef.current = fitAddon
-    onRegister(session.id, terminal)
+
+    // Load stored output
+    loadSessionOutput(token, session.id).then((output) => {
+      if (output && terminalRef.current) {
+        terminalRef.current.write(filterDesktopOutput(output))
+      }
+    }).catch(console.error)
 
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit()
@@ -227,8 +218,21 @@ function SessionPanel({
 
     return () => {
       resizeObserver.disconnect()
+      terminal.dispose()
+      terminalRef.current = null
+      fitAddonRef.current = null
     }
-  }, [session.id, onRegister])
+  }, [token, session.id])
+
+  // Subscribe to real-time output
+  useEffect(() => {
+    return subscribe(session.id, (content) => {
+      if (terminalRef.current) {
+        terminalRef.current.write(filterDesktopOutput(content))
+        terminalRef.current.scrollToBottom()
+      }
+    })
+  }, [session.id, subscribe])
 
   const handleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return
