@@ -54,45 +54,6 @@ export function processCarriageReturns(text: string): string {
 }
 
 /**
- * Filter output for mobile display
- * Strips ANSI codes and removes decorative line separators
- */
-export function filterMobileOutput(content: string): string {
-  // DEBUG: return raw content
-  return content
-}
-
-/**
- * Append new content to existing output, handling carriage returns correctly
- * \r in new content should overwrite the last line of existing content
- */
-export function appendMobileOutput(existing: string, newContent: string): string {
-  // DEBUG: simple concatenation
-  return existing + newContent
-}
-
-/**
- * Process output for mobile display with clear screen detection
- * Returns either 'append' (add to existing) or 'clear' (replace existing)
- */
-export type MobileOutputResult =
-  | { type: 'append'; content: string }
-  | { type: 'clear'; content: string }
-
-// Clear screen sequences: \x1b[2J (clear screen) or \x1b[H\x1b[J (cursor home + clear)
-const CLEAR_SCREEN_PATTERN = /\x1b\[2J|\x1b\[H\x1b\[J/
-
-export function processMobileOutput(content: string): MobileOutputResult {
-  const hasClearScreen = CLEAR_SCREEN_PATTERN.test(content)
-  const stripped = filterMobileOutput(content)
-
-  if (hasClearScreen) {
-    return { type: 'clear', content: stripped }
-  }
-  return { type: 'append', content: stripped }
-}
-
-/**
  * Filter output for desktop terminal (xterm)
  * Only removes decorative line separators, keeps ANSI codes for xterm rendering
  */
