@@ -10,7 +10,7 @@ use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{broadcast, mpsc, RwLock};
 
-use cctee_common::{Message, Token};
+use teeclaude_common::{Message, Token};
 
 use crate::AppState;
 

@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
-    println!("cctee server listening on http://0.0.0.0:{}", port);
+    println!("teeclaude server listening on http://0.0.0.0:{}", port);
 
     axum::serve(listener, app).await?;
     Ok(())

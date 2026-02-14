@@ -1,4 +1,4 @@
-use cctee_common::Message;
+use teeclaude_common::Message;
 use futures::{SinkExt, StreamExt};
 use std::sync::Arc;
 use tokio::sync::mpsc;

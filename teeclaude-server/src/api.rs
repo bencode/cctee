@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use tokio_stream::{wrappers::BroadcastStream, StreamExt};
 
-use cctee_common::{Message, SessionBasicInfo, Token, TokenResponse, TokenValidateRequest, TokenValidateResponse};
+use teeclaude_common::{Message, SessionBasicInfo, Token, TokenResponse, TokenValidateRequest, TokenValidateResponse};
 
 use crate::{ws::TokenQuery, AppState, TokenState};
 
@@ -53,7 +53,7 @@ pub async fn create_token(State(state): State<AppState>) -> Json<TokenResponse> 
 
     let host = state.public_host.clone();
     let ws_url = format!("{}/ws/wrapper?token={}", host, token_value);
-    let command_hint = format!("cctee --server={} --token={} claude", host, token_value);
+    let command_hint = format!("teeclaude --server={} --token={} claude", host, token_value);
 
     Json(TokenResponse {
         token: token_value,

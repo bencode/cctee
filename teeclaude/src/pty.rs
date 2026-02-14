@@ -1,6 +1,6 @@
 use crate::ws_client::{OptionalWs, SharedWs, WsClient};
 use anyhow::Result;
-use cctee_common::Message;
+use teeclaude_common::Message;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::io::{IsTerminal, Read, Write};
 use std::os::unix::io::AsRawFd;

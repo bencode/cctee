@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-REPO="bencode/cctee"
+REPO="bencode/tee-claude"
 INSTALL_DIR="/usr/local/bin"
 
 # Check architecture
@@ -24,24 +24,24 @@ fi
 echo "Latest version: $LATEST"
 
 # Download
-DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST/cctee-aarch64-apple-darwin.tar.gz"
+DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST/teeclaude-aarch64-apple-darwin.tar.gz"
 echo "Downloading from $DOWNLOAD_URL..."
 
 TMP_DIR=$(mktemp -d)
 cd "$TMP_DIR"
-curl -sL "$DOWNLOAD_URL" -o cctee.tar.gz
-tar -xzf cctee.tar.gz
+curl -sL "$DOWNLOAD_URL" -o teeclaude.tar.gz
+tar -xzf teeclaude.tar.gz
 
 # Install
 echo "Installing to $INSTALL_DIR..."
 if [ -w "$INSTALL_DIR" ]; then
-  mv cctee "$INSTALL_DIR/"
+  mv teeclaude "$INSTALL_DIR/"
 else
-  sudo mv cctee "$INSTALL_DIR/"
+  sudo mv teeclaude "$INSTALL_DIR/"
 fi
 
 # Cleanup
 rm -rf "$TMP_DIR"
 
-echo "cctee installed successfully!"
-echo "Run 'cctee --help' to get started."
+echo "teeclaude installed successfully!"
+echo "Run 'teeclaude --help' to get started."

@@ -16,19 +16,19 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build
-        run: cargo build --release -p cctee
+        run: cargo build --release -p teeclaude
 
       - name: Package
         run: |
           cd target/release
-          tar -czvf cctee-aarch64-apple-darwin.tar.gz cctee
-          mv cctee-aarch64-apple-darwin.tar.gz ../../
+          tar -czvf teeclaude-aarch64-apple-darwin.tar.gz teeclaude
+          mv teeclaude-aarch64-apple-darwin.tar.gz ../../
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cctee-aarch64-apple-darwin
-          path: cctee-aarch64-apple-darwin.tar.gz
+          name: teeclaude-aarch64-apple-darwin
+          path: teeclaude-aarch64-apple-darwin.tar.gz
 
   release:
     needs: build

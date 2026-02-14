@@ -1,5 +1,5 @@
 [package]
-name = "cctee-common"
+name = "teeclaude-common"
 version.workspace = true
 edition.workspace = true
 

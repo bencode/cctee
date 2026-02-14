@@ -1,14 +1,14 @@
 [package]
-name = "cctee-server"
+name = "teeclaude-server"
 version.workspace = true
 edition.workspace = true
 
 [[bin]]
-name = "cctee-server"
+name = "teeclaude-server"
 path = "src/main.rs"
 
 [dependencies]
-cctee-common = { path = "../cctee-common" }
+teeclaude-common = { path = "../teeclaude-common" }
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true

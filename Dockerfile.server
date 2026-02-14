@@ -2,15 +2,15 @@ FROM rust:1.93-slim AS builder
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
-COPY cctee-common ./cctee-common
-COPY cctee-server ./cctee-server
-COPY cctee ./cctee
-RUN cargo build --release -p cctee-server
+COPY teeclaude-common ./teeclaude-common
+COPY teeclaude-server ./teeclaude-server
+COPY teeclaude ./teeclaude
+RUN cargo build --release -p teeclaude-server
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=builder /build/target/release/cctee-server ./
+COPY --from=builder /build/target/release/teeclaude-server ./
 ENV PORT=4111
 EXPOSE 4111
-CMD ["./cctee-server"]
+CMD ["./teeclaude-server"]
