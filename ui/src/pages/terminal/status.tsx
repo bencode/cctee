@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import type { StatusResponse } from '../../types'
-import styles from './style.module.scss'
+import type { StatusResponse } from '../../lib/types'
+import styles from './status.module.scss'
 
-export function StatusPage() {
+export function TerminalStatusPage() {
   const [status, setStatus] = useState<StatusResponse | null>(null)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -11,7 +11,7 @@ export function StatusPage() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await fetch('/api/status')
+        const res = await fetch('/api/terminal/status')
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`)
         }
@@ -41,8 +41,8 @@ export function StatusPage() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1>Server Status</h1>
-        <Link to="/" className={styles.backLink}>← Back</Link>
+        <h1>Terminal Status</h1>
+        <Link to="/terminal" className={styles.backLink}>← Back</Link>
       </header>
 
       {error && <div className={styles.error}>Error: {error}</div>}

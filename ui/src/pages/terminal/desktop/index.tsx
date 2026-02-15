@@ -2,12 +2,12 @@ import { useRef, useEffect, useCallback, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
-import { useToken } from '../../use-token'
-import { useEvents } from '../../use-events'
-import type { Unsubscribe } from '../../use-events'
-import { loadSessionOutput } from '../../db'
-import { filterDesktopOutput } from '../../utils/ansi-filter'
-import type { SessionData } from '../../types'
+import { useToken } from '../../../lib/use-token'
+import { useEvents } from '../use-events'
+import type { Unsubscribe } from '../use-events'
+import { loadSessionOutput } from '../db'
+import { filterDesktopOutput } from '../../../utils/ansi-filter'
+import type { SessionData } from '../../../lib/types'
 import styles from './style.module.scss'
 
 function formatSessionLabel(session: SessionData): string {
@@ -16,7 +16,7 @@ function formatSessionLabel(session: SessionData): string {
 }
 
 export function TerminalPage() {
-  const tokenState = useToken()
+  const tokenState = useToken('terminal')
 
   if (tokenState.status === 'loading') {
     return (
@@ -52,7 +52,7 @@ function AppContent({ token, commandHint }: { token: string; commandHint: string
   const { sessions, removeSession, subscribe } = useEvents(token)
 
   const sendInput = useCallback(async (sessionId: string, content: string) => {
-    const res = await fetch('/api/input', {
+    const res = await fetch('/api/terminal/input', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, session_id: sessionId, content }),
@@ -204,7 +204,6 @@ function SessionPanel({
     terminalRef.current = terminal
     fitAddonRef.current = fitAddon
 
-    // Load stored output
     loadSessionOutput(token, session.id).then((output) => {
       if (output && terminalRef.current) {
         terminalRef.current.write(filterDesktopOutput(output))
@@ -224,7 +223,6 @@ function SessionPanel({
     }
   }, [token, session.id])
 
-  // Subscribe to real-time output
   useEffect(() => {
     return subscribe(session.id, (content) => {
       if (terminalRef.current) {

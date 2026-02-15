@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import type { Message, SessionData } from './types'
+import type { TerminalMessage, SessionData } from '../../lib/types'
 import { loadSessions, saveSessionMeta, appendOutputChunk, loadAllSessionOutputs, deleteSession } from './db'
 import type { SessionRecord } from './db'
 
@@ -54,7 +54,6 @@ export function useEvents(token: string | null) {
     }
   }, [])
 
-  // Load stored sessions and outputs from IndexedDB on init
   useEffect(() => {
     if (!token) return
     Promise.all([
@@ -71,7 +70,6 @@ export function useEvents(token: string | null) {
     }).catch(console.error)
   }, [token])
 
-  // Periodic flush
   useEffect(() => {
     flushTimerRef.current = window.setInterval(flushBuffers, FLUSH_INTERVAL)
     return () => {
@@ -79,7 +77,6 @@ export function useEvents(token: string | null) {
     }
   }, [flushBuffers])
 
-  // Flush on beforeunload
   useEffect(() => {
     const handler = () => flushBuffers()
     window.addEventListener('beforeunload', handler)
@@ -89,7 +86,7 @@ export function useEvents(token: string | null) {
   const connect = useCallback(() => {
     if (!token) return null
 
-    const url = `/api/events?token=${token}`
+    const url = `/api/terminal/events?token=${token}`
     const es = new EventSource(url)
     eventSourceRef.current = es
 
@@ -109,7 +106,7 @@ export function useEvents(token: string | null) {
     }
 
     es.onmessage = (event) => {
-      const message: Message = JSON.parse(event.data)
+      const message: TerminalMessage = JSON.parse(event.data)
 
       if (message.type === 'output') {
         setSessions((prev) => {
@@ -145,7 +142,6 @@ export function useEvents(token: string | null) {
         for (const s of message.sessions) {
           sessionNamesRef.current.set(s.id, s.name)
         }
-        // Clean up IndexedDB records for sessions no longer active
         if (token) {
           const t = token
           for (const sessionId of outputBuffersRef.current.keys()) {

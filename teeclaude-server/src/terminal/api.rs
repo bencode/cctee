@@ -13,9 +13,11 @@ use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use tokio_stream::{wrappers::BroadcastStream, StreamExt};
 
-use teeclaude_common::{Message, SessionBasicInfo, Token, TokenResponse, TokenValidateRequest, TokenValidateResponse};
+use teeclaude_common::{SessionBasicInfo, TerminalMessage, Token, TokenResponse, TokenValidateRequest, TokenValidateResponse};
 
-use crate::{ws::TokenQuery, AppState, TokenState};
+use crate::AppState;
+use super::TerminalTokenState;
+use super::ws::TokenQuery;
 
 #[derive(Serialize)]
 pub struct TokenInfo {
@@ -38,14 +40,14 @@ pub struct StatusResponse {
     pub summary: StatusSummary,
 }
 
-/// POST /api/token - Create a new token
 pub async fn create_token(State(state): State<AppState>) -> Json<TokenResponse> {
     let token = Token::generate();
     let token_value = token.value.clone();
     let expires_at = token.expires_at;
 
-    let token_state = TokenState::new(token);
+    let token_state = TerminalTokenState::new(token);
     state
+        .terminal
         .tokens
         .write()
         .await
@@ -63,12 +65,11 @@ pub async fn create_token(State(state): State<AppState>) -> Json<TokenResponse> 
     })
 }
 
-/// POST /api/token/validate - Validate a token
 pub async fn validate_token(
     State(state): State<AppState>,
     Json(req): Json<TokenValidateRequest>,
 ) -> (StatusCode, Json<TokenValidateResponse>) {
-    let tokens = state.tokens.read().await;
+    let tokens = state.terminal.tokens.read().await;
 
     match tokens.get(&req.token) {
         Some(token_state) if token_state.token.is_valid() => (
@@ -95,12 +96,11 @@ pub struct InputRequest {
     pub content: String,
 }
 
-/// POST /api/input - Send input to a session
 pub async fn send_input(
     State(state): State<AppState>,
     Json(req): Json<InputRequest>,
 ) -> impl IntoResponse {
-    let tokens = state.tokens.read().await;
+    let tokens = state.terminal.tokens.read().await;
 
     let token_state = match tokens.get(&req.token) {
         Some(ts) if ts.token.is_valid() => ts,
@@ -116,26 +116,24 @@ pub async fn send_input(
     drop(wrappers);
     drop(tokens);
 
-    let message = Message::input(&req.session_id, &req.content);
+    let message = TerminalMessage::input(&req.session_id, &req.content);
     match tx.send(message).await {
         Ok(_) => StatusCode::OK,
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
-/// GET /api/events?token=xxx - SSE event stream
 pub async fn events(
     Query(query): Query<TokenQuery>,
     State(state): State<AppState>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, StatusCode> {
-    let tokens = state.tokens.read().await;
+    let tokens = state.terminal.tokens.read().await;
 
     let token_state = match tokens.get(&query.token) {
         Some(ts) if ts.token.is_valid() => ts,
         _ => return Err(StatusCode::UNAUTHORIZED),
     };
 
-    // Get current active sessions with their names
     let active_sessions: Vec<SessionBasicInfo> = token_state
         .wrappers
         .read()
@@ -150,8 +148,7 @@ pub async fn events(
     let rx = token_state.ui_tx.subscribe();
     drop(tokens);
 
-    // Create initial message with active sessions
-    let initial_msg = Message::active_sessions(active_sessions);
+    let initial_msg = TerminalMessage::active_sessions(active_sessions);
     let initial_event = serde_json::to_string(&initial_msg)
         .ok()
         .map(|json| Ok(Event::default().data(json)));
@@ -164,7 +161,6 @@ pub async fn events(
         Err(_) => None,
     });
 
-    // Prepend initial event to the stream
     let stream = futures::stream::iter(initial_event).chain(broadcast_stream);
 
     Ok(Sse::new(stream).keep_alive(
@@ -174,9 +170,8 @@ pub async fn events(
     ))
 }
 
-/// GET /api/status - Get server status
 pub async fn get_status(State(state): State<AppState>) -> Json<StatusResponse> {
-    let tokens = state.tokens.read().await;
+    let tokens = state.terminal.tokens.read().await;
 
     let mut token_infos = Vec::new();
     let mut valid_tokens = 0;

@@ -1,6 +1,6 @@
 use crate::ws_client::{OptionalWs, SharedWs, WsClient};
 use anyhow::Result;
-use teeclaude_common::Message;
+use teeclaude_common::TerminalMessage;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::io::{IsTerminal, Read, Write};
 use std::os::unix::io::AsRawFd;
@@ -34,18 +34,17 @@ pub async fn run(command: &str, args: &[String], server_url: &str, name: Option<
         .chain(args.iter().cloned())
         .collect::<Vec<_>>()
         .join(" ");
-    ws.send(Message::session_start(&session_id, &full_command, name.map(String::from)));
+    ws.send(TerminalMessage::session_start(&session_id, &full_command, name.map(String::from)));
 
     // Set stdin to raw mode
     let stdin = std::io::stdin();
     let is_tty = stdin.is_terminal();
     let stdin_fd = stdin.as_raw_fd();
     let original_termios = if is_tty {
-        Termios::from_fd(stdin_fd).ok().map(|orig| {
+        Termios::from_fd(stdin_fd).ok().inspect(|&orig| {
             let mut raw = orig;
             termios::cfmakeraw(&mut raw);
             let _ = tcsetattr(stdin_fd, TCSANOW, &raw);
-            orig
         })
     } else {
         None
@@ -77,9 +76,9 @@ pub async fn run(command: &str, args: &[String], server_url: &str, name: Option<
         let remote_tx = pty_write_tx.clone();
         tokio::spawn(async move {
             while let Some(msg) = rx.recv().await {
-                if let Message::Input { content, .. } = msg {
+                if let TerminalMessage::Input { content, .. } = msg {
                     // Remove trailing newlines from content
-                    let content = content.trim_end_matches(|c| c == '\n' || c == '\r');
+                    let content = content.trim_end_matches(['\n', '\r']);
                     // Send content
                     let _ = remote_tx.send(content.as_bytes().to_vec()).await;
                     // Small delay then send Enter (\r)
@@ -118,14 +117,14 @@ pub async fn run(command: &str, args: &[String], server_url: &str, name: Option<
 
                 // 2. Send to server (fire-and-forget)
                 let content = String::from_utf8_lossy(data).to_string();
-                ws.send(Message::output(&session_id, content));
+                ws.send(TerminalMessage::output(&session_id, content));
             }
             Err(_) => break,
         }
     }
 
     // Send session end
-    ws.send(Message::session_end(&session_id));
+    ws.send(TerminalMessage::session_end(&session_id));
 
     // Restore terminal
     if let Some(orig) = original_termios {

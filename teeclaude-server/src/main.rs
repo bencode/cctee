@@ -1,20 +1,14 @@
-mod api;
-mod ws;
+mod terminal;
+mod chat;
 
 use anyhow::Result;
 use axum::{routing::{get, post}, Router};
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
-
-use api::{create_token, events, get_status, send_input, validate_token};
-use ws::{handle_wrapper_ws, TokenState};
 
 #[derive(Clone)]
 pub struct AppState {
-    /// Map of token -> TokenState for session isolation
-    pub tokens: Arc<RwLock<HashMap<String, TokenState>>>,
-    /// Public host URL for generating command hints
+    pub terminal: terminal::TerminalState,
+    pub chat: chat::ChatState,
     pub public_host: String,
 }
 
@@ -29,7 +23,8 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| format!("http://localhost:{}", port));
 
     let state = AppState {
-        tokens: Arc::new(RwLock::new(HashMap::new())),
+        terminal: Default::default(),
+        chat: Default::default(),
         public_host,
     };
 
@@ -39,12 +34,20 @@ async fn main() -> Result<()> {
         .allow_headers(Any);
 
     let app = Router::new()
-        .route("/api/token", post(create_token))
-        .route("/api/token/validate", post(validate_token))
-        .route("/api/input", post(send_input))
-        .route("/api/events", get(events))
-        .route("/api/status", get(get_status))
-        .route("/ws/wrapper", get(handle_wrapper_ws))
+        // Terminal mode routes
+        .route("/api/terminal/token", post(terminal::api::create_token))
+        .route("/api/terminal/token/validate", post(terminal::api::validate_token))
+        .route("/api/terminal/input", post(terminal::api::send_input))
+        .route("/api/terminal/events", get(terminal::api::events))
+        .route("/api/terminal/status", get(terminal::api::get_status))
+        .route("/ws/wrapper", get(terminal::ws::handle_wrapper_ws))
+        // Chat mode routes
+        .route("/api/chat/token", post(chat::api::create_token))
+        .route("/api/chat/token/validate", post(chat::api::validate_token))
+        .route("/api/chat/input", post(chat::api::chat_input))
+        .route("/api/chat/events", get(chat::api::events))
+        .route("/api/chat/status", get(chat::api::get_status))
+        .route("/ws/listener", get(chat::ws::handle_listener_ws))
         .layer(cors)
         .with_state(state);
 

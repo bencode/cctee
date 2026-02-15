@@ -30,7 +30,7 @@ export type ActiveSessionsMessage = {
   sessions: Array<{ id: string; name?: string }>
 }
 
-export type Message =
+export type TerminalMessage =
   | OutputMessage
   | InputMessage
   | SessionStartMessage
