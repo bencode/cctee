@@ -1,6 +1,6 @@
 mod chat_handler;
 mod config;
-mod gateway;
+mod daemon;
 mod listener;
 mod pty;
 mod url;
@@ -30,34 +30,23 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Start chat listener mode
+    /// Start chat listener (foreground) or daemon (with -d)
     Start {
+        /// Run as background daemon
+        #[arg(short, long)]
+        daemon: bool,
+
         /// App root directory (defaults to current directory)
         #[arg(long)]
         root: Option<String>,
     },
-    /// Manage background gateway daemon
-    Gateway {
-        #[command(subcommand)]
-        action: GatewayAction,
-    },
+    /// Stop the running daemon
+    Stop,
+    /// Show daemon status
+    Status,
     /// Wrap a command (terminal mode)
     #[command(external_subcommand)]
     Wrap(Vec<String>),
-}
-
-#[derive(Subcommand)]
-enum GatewayAction {
-    /// Start the gateway daemon in background
-    Start {
-        /// App root directory (defaults to current directory)
-        #[arg(long)]
-        root: Option<String>,
-    },
-    /// Stop the running gateway daemon
-    Stop,
-    /// Show gateway daemon status
-    Status,
 }
 
 #[tokio::main]
@@ -65,17 +54,15 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Start { root } => {
+        Commands::Start { daemon: true, root } => {
+            daemon::start(&cli.server, cli.token.as_deref(), root.as_deref())
+        }
+        Commands::Start { daemon: false, root } => {
             let ws_url = url::build_ws_url(&cli.server, cli.token.as_deref(), "/ws/listener");
             listener::run(&ws_url, root.as_deref()).await
         }
-        Commands::Gateway { action } => match action {
-            GatewayAction::Start { root } => {
-                gateway::start(&cli.server, cli.token.as_deref(), root.as_deref())
-            }
-            GatewayAction::Stop => gateway::stop(cli.token.as_deref()),
-            GatewayAction::Status => gateway::status(cli.token.as_deref()),
-        },
+        Commands::Stop => daemon::stop(cli.token.as_deref()),
+        Commands::Status => daemon::status(cli.token.as_deref()),
         Commands::Wrap(args) => {
             if args.is_empty() {
                 eprintln!("Usage: teeclaude [--server URL] [--token TOKEN] <command> [args...]");

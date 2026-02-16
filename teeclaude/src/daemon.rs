@@ -13,7 +13,7 @@ pub fn start(server: &str, token: Option<&str>, root: Option<&str>) -> Result<()
     let log_file = log_path(&id);
 
     if let Some(pid) = read_alive_pid(&pid_file) {
-        bail!("Gateway already running (PID {pid}). Use `gateway stop` first.");
+        bail!("Daemon already running (PID {pid}). Use `teeclaude stop` first.");
     }
 
     fs::create_dir_all(gateway_dir())?;
@@ -45,7 +45,7 @@ pub fn start(server: &str, token: Option<&str>, root: Option<&str>) -> Result<()
     let pid = child.id();
     fs::write(&pid_file, pid.to_string())?;
 
-    eprintln!("Gateway started (PID {pid}).");
+    eprintln!("Daemon started (PID {pid}).");
     eprintln!("Log: {}", log_file.display());
     Ok(())
 }
@@ -57,12 +57,12 @@ pub fn stop(token: Option<&str>) -> Result<()> {
     let pid = match read_alive_pid(&pid_file) {
         Some(p) => p,
         None => {
-            eprintln!("Gateway is not running.");
+            eprintln!("Daemon is not running.");
             return Ok(());
         }
     };
 
-    eprintln!("Stopping gateway (PID {pid})...");
+    eprintln!("Stopping daemon (PID {pid})...");
     unsafe { libc::kill(pid as i32, libc::SIGTERM) };
 
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
@@ -79,7 +79,7 @@ pub fn stop(token: Option<&str>) -> Result<()> {
     }
 
     let _ = fs::remove_file(&pid_file);
-    eprintln!("Gateway stopped.");
+    eprintln!("Daemon stopped.");
     Ok(())
 }
 
@@ -90,11 +90,11 @@ pub fn status(token: Option<&str>) -> Result<()> {
 
     match read_alive_pid(&pid_file) {
         Some(pid) => {
-            eprintln!("Gateway is running (PID {pid}).");
+            eprintln!("Daemon is running (PID {pid}).");
             eprintln!("Log: {}", log_file.display());
         }
         None => {
-            eprintln!("Gateway is not running.");
+            eprintln!("Daemon is not running.");
             if log_file.exists() {
                 eprintln!("Log: {}", log_file.display());
             }

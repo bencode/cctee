@@ -47,7 +47,7 @@ cp target/release/teeclaude /usr/local/bin/
 Wrap a command to stream its terminal session to the browser:
 
 ```bash
-teeclaude --server=wss://your-server.com --token=<token> claude
+teeclaude --token=<token> claude
 ```
 
 Any command works -- `teeclaude` creates a PTY and relays input/output bidirectionally.
@@ -57,10 +57,24 @@ Any command works -- `teeclaude` creates a PTY and relays input/output bidirecti
 Start a chat listener that connects a local Claude CLI to the browser chat UI:
 
 ```bash
-teeclaude --server=wss://your-server.com --token=<token> start --root=<project-path>
+# Foreground (for development / debugging)
+teeclaude --token=<token> start --root=<project-path>
+
+# Background daemon
+teeclaude --token=<token> start -d --root=<project-path>
 ```
 
 The `--root` flag sets the working directory for Claude. The listener reads `.teeclaude.json` from the project root for session and tool configuration.
+
+### Daemon Management
+
+```bash
+# Check daemon status
+teeclaude --token=<token> status
+
+# Stop the daemon
+teeclaude --token=<token> stop
+```
 
 ### CLI Options
 
