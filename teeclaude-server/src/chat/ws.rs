@@ -9,7 +9,7 @@ use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
 use tokio::sync::mpsc;
 
-use teeclaude_common::ChatMessage;
+use teeclaude_common::{AppInfo, ChatMessage};
 
 use crate::AppState;
 use super::ListenerConnection;
@@ -81,13 +81,18 @@ async fn handle_listener_socket(socket: WebSocket, state: AppState, token: Strin
 
     // Task: receive messages from listener and broadcast to UI
     let tx_clone = tx.clone();
+    let state_clone = state.clone();
+    let token_clone = token.clone();
     let recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = ws_receiver.next().await {
-            if let WsMessage::Text(text) = msg {
-                if let Ok(message) = serde_json::from_str::<ChatMessage>(&text) {
-                    let _ = tx_clone.send(message);
-                }
+            let WsMessage::Text(text) = msg else { continue };
+            let Ok(message) = serde_json::from_str::<ChatMessage>(&text) else {
+                continue;
+            };
+            if let ChatMessage::ListenerReady { ref apps } = message {
+                update_listener_apps(&state_clone, &token_clone, apps).await;
             }
+            let _ = tx_clone.send(message);
         }
     });
 
@@ -102,4 +107,12 @@ async fn handle_listener_socket(socket: WebSocket, state: AppState, token: Strin
         let mut listener = ts.listener.write().await;
         *listener = None;
     }
+}
+
+async fn update_listener_apps(state: &AppState, token: &str, apps: &[AppInfo]) {
+    let tokens = state.chat.tokens.read().await;
+    let Some(ts) = tokens.get(token) else { return };
+    let mut listener = ts.listener.write().await;
+    let Some(ref mut conn) = *listener else { return };
+    conn.apps = apps.to_vec();
 }
