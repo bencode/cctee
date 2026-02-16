@@ -1,12 +1,14 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const CONFIG_FILE: &str = ".teeclaude.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    #[serde(skip)]
+    pub config_path: PathBuf,
     pub apps: Vec<App>,
 }
 
@@ -25,13 +27,18 @@ pub struct ChatSession {
 }
 
 impl Config {
-    pub fn load_or_create() -> Result<Self> {
-        let path = Path::new(CONFIG_FILE);
-        if path.exists() {
-            let content = std::fs::read_to_string(path)?;
-            Ok(serde_json::from_str(&content)?)
+    pub fn load_or_create(root: &str) -> Result<Self> {
+        let config_path = Path::new(root).join(CONFIG_FILE);
+        if config_path.exists() {
+            let content = std::fs::read_to_string(&config_path)?;
+            let mut config: Config = serde_json::from_str(&content)?;
+            config.config_path = config_path;
+            Ok(config)
         } else {
-            let config = Config { apps: vec![] };
+            let config = Config {
+                config_path: config_path,
+                apps: vec![],
+            };
             config.save()?;
             Ok(config)
         }
@@ -39,7 +46,7 @@ impl Config {
 
     pub fn save(&self) -> Result<()> {
         let content = serde_json::to_string_pretty(self)?;
-        std::fs::write(CONFIG_FILE, content)?;
+        std::fs::write(&self.config_path, content)?;
         Ok(())
     }
 

@@ -1333,7 +1333,6 @@ dependencies = [
  "chrono",
  "clap",
  "futures",
- "nanoid",
  "portable-pty",
  "serde",
  "serde_json",
