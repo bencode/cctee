@@ -56,6 +56,9 @@ pub enum ChatMessage {
         name: String,
         timestamp: DateTime<Utc>,
     },
+
+    /// Server → Listener: request to reload config and resend apps
+    ResyncApps,
 }
 
 impl ChatMessage {

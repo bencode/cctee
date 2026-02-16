@@ -3,6 +3,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+use teeclaude_common::AppInfo;
+
 const CONFIG_FILE: &str = ".teeclaude.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,5 +95,15 @@ impl Config {
             }
         }
         Ok(())
+    }
+
+    pub fn to_app_infos(&self) -> Vec<AppInfo> {
+        self.apps
+            .iter()
+            .map(|a| AppInfo {
+                root: a.root.clone(),
+                name: a.root.rsplit('/').next().unwrap_or(&a.root).to_string(),
+            })
+            .collect()
     }
 }

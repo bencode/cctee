@@ -122,29 +122,61 @@
   }
 }
 
-.newChat {
-  padding: 4px 12px;
+.appGroup {
+  margin-bottom: 4px;
+}
+
+.appHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
   font-size: 12px;
-  color: #d4d4d4;
-  background: #333;
-  border: 1px solid #444;
-  border-radius: 4px;
+  font-weight: 600;
+  color: #888;
+  background: transparent;
+  border: none;
   cursor: pointer;
+  text-align: left;
 
   &:hover {
-    background: #444;
+    color: #d4d4d4;
   }
 }
 
-.appSelect {
-  margin: 8px 16px;
-  padding: 6px 8px;
+.appToggle {
+  font-size: 10px;
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.appName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appSessions {
+  padding-left: 12px;
+}
+
+.newSessionBtn {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
   font-size: 12px;
-  color: #d4d4d4;
-  background: #252525;
-  border: 1px solid #444;
+  color: #666;
+  background: transparent;
+  border: none;
   border-radius: 4px;
-  outline: none;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    color: #d4d4d4;
+    background: #252525;
+  }
 }
 
 .sessionList {

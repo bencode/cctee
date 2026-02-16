@@ -45,6 +45,7 @@ async fn main() -> Result<()> {
         .route("/api/chat/token", post(chat::api::create_token))
         .route("/api/chat/token/validate", post(chat::api::validate_token))
         .route("/api/chat/input", post(chat::api::chat_input))
+        .route("/api/chat/refresh-apps", post(chat::api::refresh_apps))
         .route("/api/chat/events", get(chat::api::events))
         .route("/api/chat/status", get(chat::api::get_status))
         .route("/ws/listener", get(chat::ws::handle_listener_ws))

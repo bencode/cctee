@@ -39,8 +39,7 @@ function ChatContent({ token, commandHint }: { token: string; commandHint: strin
   } = useChat(token)
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [selectedApp, setSelectedApp] = useState<string | null>(null)
-  const activeApp = selectedApp ?? apps[0]?.root ?? null
+  const [collapsedApps, setCollapsedApps] = useState<Set<string>>(new Set())
 
   if (!listenerConnected) {
     return <WaitingForListener commandHint={commandHint} />
@@ -49,6 +48,28 @@ function ChatContent({ token, commandHint }: { token: string; commandHint: strin
   const sessionArray = Array.from(sessions.values())
   const currentMessages = currentSessionId ? (messages.get(currentSessionId) ?? []) : []
   const currentSession = currentSessionId ? sessions.get(currentSessionId) : null
+  const activeAppName = currentSession
+    ? apps.find(a => a.root === currentSession.app_root)?.name
+    : apps[0]?.name
+
+  const toggleApp = (root: string) => {
+    setCollapsedApps(prev => {
+      const next = new Set(prev)
+      if (next.has(root)) next.delete(root)
+      else next.add(root)
+      return next
+    })
+  }
+
+  const sessionsByApp = new Map<string, typeof sessionArray>()
+  for (const app of apps) {
+    sessionsByApp.set(app.root, [])
+  }
+  for (const s of sessionArray) {
+    const list = sessionsByApp.get(s.app_root)
+    if (list) list.push(s)
+    else sessionsByApp.set(s.app_root, [s])
+  }
 
   return (
     <div className={styles.page}>
@@ -56,35 +77,40 @@ function ChatContent({ token, commandHint }: { token: string; commandHint: strin
       <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.sidebarHeader}>
           <h2>Sessions</h2>
-          <button className={styles.newChat} onClick={() => { startNewSession(); setSidebarOpen(false) }}>
-            + New
-          </button>
         </div>
-        {apps.length > 1 && (
-          <select
-            className={styles.appSelect}
-            value={activeApp ?? ''}
-            onChange={(e) => setSelectedApp(e.target.value)}
-          >
-            {apps.map(app => (
-              <option key={app.root} value={app.root}>{app.name}</option>
-            ))}
-          </select>
-        )}
         <div className={styles.sessionList}>
-          {sessionArray.map(session => (
-            <button
-              key={session.id}
-              className={`${styles.sessionItem} ${session.id === currentSessionId ? styles.active : ''}`}
-              onClick={() => { selectSession(session.id); setSidebarOpen(false) }}
-            >
-              <span className={styles.sessionName}>{session.name || session.id.slice(0, 8)}</span>
-              {session.status === 'streaming' && <span className={styles.streamingDot} />}
-            </button>
-          ))}
-          {sessionArray.length === 0 && (
-            <div className={styles.noSessions}>No sessions yet</div>
-          )}
+          {apps.map(app => {
+            const appSessions = sessionsByApp.get(app.root) ?? []
+            const collapsed = collapsedApps.has(app.root)
+            return (
+              <div key={app.root} className={styles.appGroup}>
+                <button className={styles.appHeader} onClick={() => toggleApp(app.root)}>
+                  <span className={styles.appToggle}>{collapsed ? '▸' : '▾'}</span>
+                  <span className={styles.appName}>{app.name}</span>
+                </button>
+                {!collapsed && (
+                  <div className={styles.appSessions}>
+                    {appSessions.map(session => (
+                      <button
+                        key={session.id}
+                        className={`${styles.sessionItem} ${session.id === currentSessionId ? styles.active : ''}`}
+                        onClick={() => { selectSession(session.id); setSidebarOpen(false) }}
+                      >
+                        <span className={styles.sessionName}>{session.name || session.id.slice(0, 8)}</span>
+                        {session.status === 'streaming' && <span className={styles.streamingDot} />}
+                      </button>
+                    ))}
+                    <button
+                      className={styles.newSessionBtn}
+                      onClick={() => { startNewSession(app.root); setSidebarOpen(false) }}
+                    >
+                      + New
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </aside>
 
@@ -102,7 +128,7 @@ function ChatContent({ token, commandHint }: { token: string; commandHint: strin
           </span>
           <span className={styles.connectionStatus}>
             <span className={styles.connectedDot} />
-            {apps.length > 0 && apps[0].name}
+            {activeAppName}
           </span>
         </header>
 
@@ -112,7 +138,10 @@ function ChatContent({ token, commandHint }: { token: string; commandHint: strin
         />
 
         <ChatInput
-          onSend={(content) => sendMessage(content, activeApp ?? undefined)}
+          onSend={(content) => {
+            const appRoot = currentSession?.app_root ?? apps[0]?.root
+            sendMessage(content, appRoot)
+          }}
           disabled={currentSession?.status === 'streaming'}
         />
       </main>

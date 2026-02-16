@@ -106,6 +106,36 @@ pub async fn chat_input(
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RefreshAppsRequest {
+    pub token: String,
+}
+
+pub async fn refresh_apps(
+    State(state): State<AppState>,
+    Json(req): Json<RefreshAppsRequest>,
+) -> impl IntoResponse {
+    let tokens = state.chat.tokens.read().await;
+
+    let token_state = match tokens.get(&req.token) {
+        Some(ts) if ts.token.is_valid() => ts,
+        _ => return StatusCode::UNAUTHORIZED,
+    };
+
+    let listener = token_state.listener.read().await;
+    let sender = match listener.as_ref() {
+        Some(conn) => conn.sender.clone(),
+        None => return StatusCode::SERVICE_UNAVAILABLE,
+    };
+    drop(listener);
+    drop(tokens);
+
+    match sender.send(ChatMessage::ResyncApps).await {
+        Ok(_) => StatusCode::OK,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
+
 pub async fn events(
     Query(query): Query<TokenQuery>,
     State(state): State<AppState>,

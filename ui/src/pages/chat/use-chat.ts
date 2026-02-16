@@ -27,6 +27,7 @@ export function useChat(token: string | null) {
   const messagesRef = useRef(messages)
   const stateRef = useRef(state)
   const pendingUserMessageRef = useRef<string | null>(null)
+  const pendingAppRootRef = useRef<string | null>(null)
 
   useEffect(() => { tokenRef.current = token }, [token])
   useEffect(() => { messagesRef.current = messages }, [messages])
@@ -76,6 +77,16 @@ export function useChat(token: string | null) {
       updatedAt: Date.now(),
     }
     saveChatSession(record).catch(console.error)
+  }, [])
+
+  const triggerRefreshApps = useCallback(() => {
+    const t = tokenRef.current
+    if (!t) return
+    fetch('/api/chat/refresh-apps', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: t }),
+    }).catch(console.error)
   }, [])
 
   const connect = useCallback(() => {
@@ -135,7 +146,10 @@ export function useChat(token: string | null) {
           return next
         })
       } else if (message.type === 'chat_output') {
-        const text = extractAssistantText(message.content)
+        const { text, uiCalls } = extractAssistantText(message.content)
+        if (uiCalls.includes('refresh_apps')) {
+          triggerRefreshApps()
+        }
         if (!text) return
         setState(prev => {
           const sessions = new Map(prev.sessions)
@@ -218,7 +232,7 @@ export function useChat(token: string | null) {
     }
 
     return es
-  }, [token, persistSession])
+  }, [token, persistSession, triggerRefreshApps])
 
   useEffect(() => {
     const es = connect()
@@ -234,8 +248,9 @@ export function useChat(token: string | null) {
     if (!token) return
 
     const currentApps = stateRef.current.apps
-    const app = appRoot ?? currentApps[0]?.root
+    const app = appRoot ?? pendingAppRootRef.current ?? currentApps[0]?.root
     if (!app) return
+    pendingAppRootRef.current = null
 
     const sessionId = stateRef.current.currentSessionId
 
@@ -272,7 +287,8 @@ export function useChat(token: string | null) {
     setState(prev => ({ ...prev, currentSessionId: sessionId }))
   }, [])
 
-  const startNewSession = useCallback(() => {
+  const startNewSession = useCallback((appRoot?: string) => {
+    pendingAppRootRef.current = appRoot ?? null
     setState(prev => ({ ...prev, currentSessionId: null }))
   }, [])
 
@@ -285,13 +301,28 @@ export function useChat(token: string | null) {
   }
 }
 
-function extractAssistantText(raw: string): string | null {
+type ExtractResult = { text: string | null; uiCalls: string[] }
+
+const UI_CALL_RE = /<ui_call>\s*([\s\S]*?)\s*<\/ui_call>/g
+
+function extractAssistantText(raw: string): ExtractResult {
   const event = JSON.parse(raw)
-  if (event.type !== 'assistant') return null
+  if (event.type !== 'assistant') return { text: null, uiCalls: [] }
   const content = event.message?.content
-  if (!Array.isArray(content)) return null
-  return content
+  if (!Array.isArray(content)) return { text: null, uiCalls: [] }
+  let joined = content
     .filter((b: { type: string }) => b.type === 'text')
     .map((b: { text: string }) => b.text)
-    .join('') || null
+    .join('')
+  if (!joined) return { text: null, uiCalls: [] }
+
+  const uiCalls: string[] = []
+  for (const m of joined.matchAll(UI_CALL_RE)) {
+    try {
+      const parsed = JSON.parse(m[1])
+      if (Array.isArray(parsed)) uiCalls.push(...parsed)
+    } catch { /* ignore malformed */ }
+  }
+  const text = joined.replace(UI_CALL_RE, '') || null
+  return { text, uiCalls }
 }

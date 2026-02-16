@@ -3,21 +3,10 @@ use futures::{SinkExt, StreamExt};
 use tokio::sync::mpsc;
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
 
-use teeclaude_common::{AppInfo, ChatMessage};
+use teeclaude_common::ChatMessage;
 
 use crate::chat_handler;
 use crate::config::Config;
-
-fn to_app_infos(config: &Config) -> Vec<AppInfo> {
-    config
-        .apps
-        .iter()
-        .map(|a| AppInfo {
-            root: a.root.clone(),
-            name: a.root.rsplit('/').next().unwrap_or(&a.root).to_string(),
-        })
-        .collect()
-}
 
 pub async fn run(server_url: &str, root: Option<&str>) -> Result<()> {
     let app_root = match root {
@@ -34,7 +23,7 @@ pub async fn run(server_url: &str, root: Option<&str>) -> Result<()> {
     config.ensure_app(&app_root);
     config.save()?;
 
-    let apps = to_app_infos(&config);
+    let apps = config.to_app_infos();
 
     eprintln!("Connecting to {}...", server_url);
     let (ws_stream, _) = connect_async(server_url).await?;
@@ -74,24 +63,35 @@ pub async fn run(server_url: &str, root: Option<&str>) -> Result<()> {
                 Err(_) => continue,
             };
 
-            if let ChatMessage::ChatInput {
-                chat_session_id,
-                app_root,
-                content,
-            } = message
-            {
-                let out_tx = out_tx.clone();
-                let mut config = config.clone();
-                tokio::spawn(async move {
-                    chat_handler::handle_chat_input(
-                        &mut config,
-                        &out_tx,
-                        chat_session_id,
-                        &app_root,
-                        &content,
-                    )
-                    .await;
-                });
+            match message {
+                ChatMessage::ChatInput {
+                    chat_session_id,
+                    app_root,
+                    content,
+                } => {
+                    let out_tx = out_tx.clone();
+                    let mut config = config.clone();
+                    tokio::spawn(async move {
+                        chat_handler::handle_chat_input(
+                            &mut config,
+                            &out_tx,
+                            chat_session_id,
+                            &app_root,
+                            &content,
+                        )
+                        .await;
+                    });
+                }
+                ChatMessage::ResyncApps => {
+                    if let Ok(fresh) = Config::load_or_create(&app_root) {
+                        let _ = out_tx
+                            .send(ChatMessage::ListenerReady {
+                                apps: fresh.to_app_infos(),
+                            })
+                            .await;
+                    }
+                }
+                _ => {}
             }
         }
     });
