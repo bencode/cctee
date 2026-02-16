@@ -266,6 +266,27 @@ export function useChat(token: string | null) {
       pendingUserMessageRef.current = content
     }
 
+    // /clear: sync frontend data with backend context reset
+    if (content.trim() === '/clear' && sessionId) {
+      setMessages(prev => {
+        const next = new Map(prev)
+        next.set(sessionId, [])
+        return next
+      })
+      setState(prev => {
+        const sessions = new Map(prev.sessions)
+        const session = sessions.get(sessionId)
+        if (session) {
+          sessions.set(sessionId, { ...session, output: '' })
+        }
+        return { ...prev, sessions }
+      })
+      const session = stateRef.current.sessions.get(sessionId)
+      if (session) {
+        persistSession(sessionId, [], { ...session, output: '' })
+      }
+    }
+
     const res = await fetch('/api/chat/input', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
