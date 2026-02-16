@@ -69,6 +69,10 @@ pub async fn run(server_url: &str, root: Option<&str>) -> Result<()> {
                     app_root,
                     content,
                 } => {
+                    eprintln!(
+                        "[listener] received ChatInput: session={:?}, app_root={}, content_len={}",
+                        chat_session_id, app_root, content.len()
+                    );
                     let out_tx = out_tx.clone();
                     let mut config = config.clone();
                     tokio::spawn(async move {
@@ -96,6 +100,8 @@ pub async fn run(server_url: &str, root: Option<&str>) -> Result<()> {
         }
     });
 
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+
     tokio::select! {
         _ = send_task => {
             eprintln!("Connection to server lost.");
@@ -105,6 +111,9 @@ pub async fn run(server_url: &str, root: Option<&str>) -> Result<()> {
         }
         _ = tokio::signal::ctrl_c() => {
             eprintln!("Shutting down.");
+        }
+        _ = sigterm.recv() => {
+            eprintln!("Shutting down (SIGTERM).");
         }
     }
 

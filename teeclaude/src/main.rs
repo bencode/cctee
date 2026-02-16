@@ -1,5 +1,6 @@
 mod chat_handler;
 mod config;
+mod gateway;
 mod listener;
 mod pty;
 mod url;
@@ -35,9 +36,28 @@ enum Commands {
         #[arg(long)]
         root: Option<String>,
     },
+    /// Manage background gateway daemon
+    Gateway {
+        #[command(subcommand)]
+        action: GatewayAction,
+    },
     /// Wrap a command (terminal mode)
     #[command(external_subcommand)]
     Wrap(Vec<String>),
+}
+
+#[derive(Subcommand)]
+enum GatewayAction {
+    /// Start the gateway daemon in background
+    Start {
+        /// App root directory (defaults to current directory)
+        #[arg(long)]
+        root: Option<String>,
+    },
+    /// Stop the running gateway daemon
+    Stop,
+    /// Show gateway daemon status
+    Status,
 }
 
 #[tokio::main]
@@ -49,6 +69,13 @@ async fn main() -> Result<()> {
             let ws_url = url::build_ws_url(&cli.server, cli.token.as_deref(), "/ws/listener");
             listener::run(&ws_url, root.as_deref()).await
         }
+        Commands::Gateway { action } => match action {
+            GatewayAction::Start { root } => {
+                gateway::start(&cli.server, cli.token.as_deref(), root.as_deref())
+            }
+            GatewayAction::Stop => gateway::stop(cli.token.as_deref()),
+            GatewayAction::Status => gateway::status(cli.token.as_deref()),
+        },
         Commands::Wrap(args) => {
             if args.is_empty() {
                 eprintln!("Usage: teeclaude [--server URL] [--token TOKEN] <command> [args...]");
