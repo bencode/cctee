@@ -4,6 +4,14 @@
   padding: 0;
 }
 
+html {
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 html, body, #root {
   height: 100%;
 }

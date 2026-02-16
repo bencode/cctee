@@ -343,6 +343,8 @@
   border-radius: 8px;
   background: #1e1e1e;
   border: 1px solid #333;
+  -webkit-user-select: text;
+  user-select: text;
 
   pre {
     margin: 0;
@@ -409,6 +411,8 @@
   resize: none;
   line-height: 1.4;
   max-height: 200px;
+  -webkit-user-select: text;
+  user-select: text;
 
   &:focus {
     border-color: #0dbc79;

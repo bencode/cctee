@@ -1,0 +1,8 @@
+{
+  "name": "Tee Claude",
+  "short_name": "Tee Claude",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#121212"
+}
