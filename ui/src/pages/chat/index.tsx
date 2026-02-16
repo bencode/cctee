@@ -138,10 +138,7 @@ function ChatContent({ token, commandHint }: { token: string; commandHint: strin
         />
 
         <ChatInput
-          onSend={(content) => {
-            const appRoot = currentSession?.app_root ?? apps[0]?.root
-            sendMessage(content, appRoot)
-          }}
+          onSend={(content) => sendMessage(content, currentSession?.app_root)}
           disabled={currentSession?.status === 'streaming'}
         />
       </main>

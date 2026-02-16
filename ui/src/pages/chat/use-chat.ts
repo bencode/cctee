@@ -247,8 +247,7 @@ export function useChat(token: string | null) {
   const sendMessage = useCallback(async (content: string, appRoot?: string) => {
     if (!token) return
 
-    const currentApps = stateRef.current.apps
-    const app = appRoot ?? pendingAppRootRef.current ?? currentApps[0]?.root
+    const app = appRoot ?? pendingAppRootRef.current
     if (!app) return
     pendingAppRootRef.current = null
 
