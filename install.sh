@@ -14,7 +14,7 @@ fi
 
 # Get latest release tag
 echo "Fetching latest release..."
-LATEST=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+LATEST=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$LATEST" ]; then
   echo "Failed to get latest release"
@@ -29,8 +29,26 @@ echo "Downloading from $DOWNLOAD_URL..."
 
 TMP_DIR=$(mktemp -d)
 cd "$TMP_DIR"
-curl -sL "$DOWNLOAD_URL" -o teeclaude.tar.gz
+
+if ! curl -fSL "$DOWNLOAD_URL" -o teeclaude.tar.gz; then
+  echo "Failed to download release"
+  rm -rf "$TMP_DIR"
+  exit 1
+fi
+
 tar -xzf teeclaude.tar.gz
+
+if [ ! -f teeclaude ]; then
+  echo "Error: binary not found in archive"
+  rm -rf "$TMP_DIR"
+  exit 1
+fi
+
+# Ensure install directory exists
+if [ ! -d "$INSTALL_DIR" ]; then
+  echo "Creating $INSTALL_DIR..."
+  sudo mkdir -p "$INSTALL_DIR"
+fi
 
 # Install
 echo "Installing to $INSTALL_DIR..."
