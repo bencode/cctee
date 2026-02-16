@@ -23,5 +23,8 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data/static:/srv:ro
     depends_on:
-      - server
+      server:
+        condition: service_started
+      ui:
+        condition: service_completed_successfully
     restart: unless-stopped
