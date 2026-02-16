@@ -6,6 +6,11 @@ use teeclaude_common::ChatMessage;
 
 use crate::config::{ChatSession, Config};
 
+fn apply_allowed_tools(cmd: &mut tokio::process::Command, _config: &Config) {
+    // TODO: make configurable from UI, for now allow all tools
+    cmd.arg("--dangerously-skip-permissions");
+}
+
 const CLAUDE_MD_TEMPLATE: &str = r#"# TeeClaude
 
 ## ui_call 协议
@@ -74,6 +79,8 @@ pub async fn handle_chat_input(
     } else {
         cmd.arg("-r").arg(&session_id);
     }
+
+    apply_allowed_tools(&mut cmd, config);
 
     cmd.current_dir(app_root);
     cmd.stdout(Stdio::piped());

@@ -9,7 +9,25 @@ const CONFIG_FILE: &str = ".teeclaude.json";
 pub struct Config {
     #[serde(skip)]
     pub config_path: PathBuf,
+    #[serde(default = "default_allowed_tools")]
+    pub allowed_tools: Vec<String>,
     pub apps: Vec<App>,
+}
+
+fn default_allowed_tools() -> Vec<String> {
+    [
+        "Edit",
+        "Write",
+        "Bash(git *)",
+        "Bash(npm *)",
+        "Bash(npx *)",
+        "Bash(node *)",
+        "Bash(ls *)",
+        "Bash(mkdir *)",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,7 +54,8 @@ impl Config {
             Ok(config)
         } else {
             let config = Config {
-                config_path: config_path,
+                config_path,
+                allowed_tools: default_allowed_tools(),
                 apps: vec![],
             };
             config.save()?;
