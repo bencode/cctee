@@ -135,13 +135,15 @@ export function useChat(token: string | null) {
           return next
         })
       } else if (message.type === 'chat_output') {
+        const text = extractAssistantText(message.content)
+        if (!text) return
         setState(prev => {
           const sessions = new Map(prev.sessions)
           const session = sessions.get(message.chat_session_id)
           if (session) {
             sessions.set(message.chat_session_id, {
               ...session,
-              output: session.output + message.content,
+              output: session.output + text,
               status: 'streaming',
             })
           }
@@ -152,9 +154,9 @@ export function useChat(token: string | null) {
           const entries = [...(next.get(message.chat_session_id) ?? [])]
           const last = entries[entries.length - 1]
           if (last && last.role === 'assistant' && last.status === 'streaming') {
-            entries[entries.length - 1] = { ...last, content: last.content + message.content }
+            entries[entries.length - 1] = { ...last, content: last.content + text }
           } else {
-            entries.push({ role: 'assistant', content: message.content, status: 'streaming' })
+            entries.push({ role: 'assistant', content: text, status: 'streaming' })
           }
           next.set(message.chat_session_id, entries)
           return next
@@ -281,4 +283,15 @@ export function useChat(token: string | null) {
     selectSession,
     startNewSession,
   }
+}
+
+function extractAssistantText(raw: string): string | null {
+  const event = JSON.parse(raw)
+  if (event.type !== 'assistant') return null
+  const content = event.message?.content
+  if (!Array.isArray(content)) return null
+  return content
+    .filter((b: { type: string }) => b.type === 'text')
+    .map((b: { text: string }) => b.text)
+    .join('') || null
 }

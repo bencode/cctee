@@ -1,3 +1,4 @@
+mod chat_handler;
 mod config;
 mod listener;
 mod pty;
@@ -29,7 +30,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Start chat listener mode
-    Start,
+    Start {
+        /// App root directory (defaults to current directory)
+        #[arg(long)]
+        root: Option<String>,
+    },
     /// Wrap a command (terminal mode)
     #[command(external_subcommand)]
     Wrap(Vec<String>),
@@ -40,9 +45,9 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Start => {
+        Commands::Start { root } => {
             let ws_url = url::build_ws_url(&cli.server, cli.token.as_deref(), "/ws/listener");
-            listener::run(&ws_url).await
+            listener::run(&ws_url, root.as_deref()).await
         }
         Commands::Wrap(args) => {
             if args.is_empty() {
