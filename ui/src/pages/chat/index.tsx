@@ -137,10 +137,12 @@ function ChatContent({ token, commandHint }: { token: string; commandHint: strin
           isStreaming={currentSession?.status === 'streaming'}
         />
 
-        <ChatInput
-          onSend={(content) => sendMessage(content, currentSession?.app_root)}
-          disabled={currentSession?.status === 'streaming'}
-        />
+        <div className={styles.inputWrapper}>
+          <ChatInput
+            onSend={(content) => sendMessage(content, currentSession?.app_root)}
+            disabled={currentSession?.status === 'streaming'}
+          />
+        </div>
       </main>
     </div>
   )

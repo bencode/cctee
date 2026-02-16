@@ -83,12 +83,19 @@ pub async fn handle_chat_input(
     apply_allowed_tools(&mut cmd, config);
 
     cmd.current_dir(app_root);
+    cmd.stdin(Stdio::null());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
+
+    eprintln!(
+        "[chat] spawning claude: session={}, app_root={}, new={}",
+        session_id, app_root, is_new
+    );
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,
         Err(e) => {
+            eprintln!("[chat] failed to spawn claude: {}", e);
             let _ = out_tx
                 .send(ChatMessage::chat_error(&session_id, e.to_string()))
                 .await;
@@ -134,6 +141,7 @@ pub async fn handle_chat_input(
 
     match child.wait().await {
         Ok(status) if status.success() && !got_result_error => {
+            eprintln!("[chat] claude exited successfully: session={}", session_id);
             let _ = config.update_session_activity(app_root, &session_id);
             let _ = out_tx.send(ChatMessage::chat_done(&session_id)).await;
         }
@@ -155,11 +163,13 @@ pub async fn handle_chat_input(
                     stderr_output.trim()
                 )
             };
+            eprintln!("[chat] claude error: session={}, {}", session_id, msg);
             let _ = out_tx
                 .send(ChatMessage::chat_error(&session_id, msg))
                 .await;
         }
         Err(e) => {
+            eprintln!("[chat] wait error: session={}, {}", session_id, e);
             let _ = out_tx
                 .send(ChatMessage::chat_error(&session_id, e.to_string()))
                 .await;
